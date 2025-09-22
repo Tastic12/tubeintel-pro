@@ -66,20 +66,10 @@ export const PRODUCTS = {
     priceId: 'price_1RY4QjC02Im4s7TPr2nMPptU', // Your Stripe price ID
     features: [
       'Track unlimited competitors',
+      'Track unlimited videos',
       'Advanced Trend Analysis',
-      'Image Coder Tool',
-      'And all Free features'
-    ]
-  },
-  PRO_PLUS: {
-    name: 'Pro Plus',
-    id: 'prod_SK8m02dc2KMvfO', // Pro Plus product ID
-    priceId: 'price_1RPUUjC02Im4s7TPSinXZPKZ', // Pro Plus price ID
-    features: [
-      'AI Content Recommendations',
-      'Advanced Audience Insights',
       'Priority Support',
-      'And all Pro features'
+      'And all Free features'
     ]
   }
 }; 

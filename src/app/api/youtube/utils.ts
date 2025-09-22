@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-const RAPID_API_HOST = process.env.RAPID_API_HOST || 'youtube-v311.p.rapidapi.com';
-const RAPID_API_KEY = process.env.RAPID_API_KEY;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
-if (!RAPID_API_KEY) {
-  console.error('RapidAPI key is not configured. Please set RAPID_API_KEY in your environment variables.');
+if (!YOUTUBE_API_KEY) {
+  console.error('YouTube API key is not configured. Please set YOUTUBE_API_KEY in your environment variables.');
 }
 
 // Server-side cache implementation
@@ -32,9 +32,9 @@ const EXTENDED_CACHE_DURATIONS = {
 
 export async function fetchFromYouTubeApi(endpoint: string, params: Record<string, string>) {
   try {
-    if (!RAPID_API_KEY) {
+    if (!YOUTUBE_API_KEY) {
       return NextResponse.json(
-        { error: 'RapidAPI key is not configured' },
+        { error: 'YouTube API key is not configured' },
         { status: 500 }
       );
     }
@@ -80,27 +80,25 @@ export async function fetchFromYouTubeApi(endpoint: string, params: Record<strin
       }
       
       try {
-        // Build URL with parameters
-        const searchParams = new URLSearchParams(params);
-        const url = `https://${RAPID_API_HOST}/${endpoint}?${searchParams.toString()}`;
+        // Build URL with parameters for official YouTube API
+        const searchParams = new URLSearchParams({
+          ...params,
+          key: YOUTUBE_API_KEY
+        });
+        const url = `${YOUTUBE_API_BASE_URL}/${endpoint}?${searchParams.toString()}`;
         
-        // Make the request with RapidAPI headers
-        console.log('Fetching from RapidAPI YouTube:', {
+        // Make the request to official YouTube API
+        console.log('Fetching from YouTube API:', {
           endpoint,
-          url,
+          url: url.replace(YOUTUBE_API_KEY, 'API_KEY_HIDDEN'),
           params
         });
         
-        const response = await fetch(url, {
-          headers: {
-            'X-RapidAPI-Key': RAPID_API_KEY,
-            'X-RapidAPI-Host': RAPID_API_HOST
-          }
-        });
+        const response = await fetch(url);
         
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('RapidAPI YouTube Error:', {
+          console.error('YouTube API Error:', {
             status: response.status,
             statusText: response.statusText,
             error: errorData,
@@ -120,7 +118,7 @@ export async function fetchFromYouTubeApi(endpoint: string, params: Record<strin
           }
           
           return NextResponse.json(
-            { error: `RapidAPI YouTube Error: ${response.statusText}`, details: errorData },
+            { error: `YouTube API Error: ${response.statusText}`, details: errorData },
             { status: response.status }
           );
         }
@@ -146,27 +144,25 @@ export async function fetchFromYouTubeApi(endpoint: string, params: Record<strin
     
     // No cache or expired cache beyond extended TTL, must fetch fresh data
     
-    // Build URL with parameters
-    const searchParams = new URLSearchParams(params);
-    const url = `https://${RAPID_API_HOST}/${endpoint}?${searchParams.toString()}`;
+    // Build URL with parameters for official YouTube API
+    const searchParams = new URLSearchParams({
+      ...params,
+      key: YOUTUBE_API_KEY
+    });
+    const url = `${YOUTUBE_API_BASE_URL}/${endpoint}?${searchParams.toString()}`;
     
-    // Make the request with RapidAPI headers
-    console.log('Fetching from RapidAPI YouTube:', {
+    // Make the request to official YouTube API
+    console.log('Fetching from YouTube API:', {
       endpoint,
-      url,
+      url: url.replace(YOUTUBE_API_KEY, 'API_KEY_HIDDEN'),
       params
     });
     
-    const response = await fetch(url, {
-      headers: {
-        'X-RapidAPI-Key': RAPID_API_KEY,
-        'X-RapidAPI-Host': RAPID_API_HOST
-      }
-    });
+    const response = await fetch(url);
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('RapidAPI YouTube Error:', {
+      console.error('YouTube API Error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorData,
@@ -175,7 +171,7 @@ export async function fetchFromYouTubeApi(endpoint: string, params: Record<strin
       });
       
       return NextResponse.json(
-        { error: `RapidAPI YouTube Error: ${response.statusText}`, details: errorData },
+        { error: `YouTube API Error: ${response.statusText}`, details: errorData },
         { status: response.status }
       );
     }
@@ -190,9 +186,9 @@ export async function fetchFromYouTubeApi(endpoint: string, params: Record<strin
     
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Server error in RapidAPI YouTube request:', error);
+    console.error('Server error in YouTube API request:', error);
     return NextResponse.json(
-      { error: 'Internal server error processing RapidAPI YouTube request' },
+      { error: 'Internal server error processing YouTube API request' },
       { status: 500 }
     );
   }

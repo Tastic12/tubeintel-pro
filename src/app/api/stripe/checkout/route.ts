@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     // Debug info
     console.log('Checkout request received:', { priceId, planType });
     console.log('Server Stripe key exists:', !!process.env.STRIPE_SECRET_KEY);
-    console.log('Using product ID:', planType === 'pro' ? PRODUCTS.PRO.id : PRODUCTS.PRO_PLUS.id);
+    console.log('Using product ID:', PRODUCTS.PRO.id);
     
     // Validate the request
     if (!priceId || !planType) {
@@ -22,11 +22,8 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    if (!(planType === 'pro' || planType === 'pro-plus')) {
-      return NextResponse.json(
-        { error: 'Invalid plan type' },
-        { status: 400 }
-      );
+    if (planType !== 'pro') {
+      return NextResponse.json({ error: 'Invalid plan type' }, { status: 400 });
     }
 
     // Check if Stripe is configured
@@ -109,7 +106,7 @@ export async function POST(req: NextRequest) {
         customer_email: email,
         line_items: [
           {
-            price: priceId,
+            price: PRODUCTS.PRO.priceId,
             quantity: 1,
           },
         ],

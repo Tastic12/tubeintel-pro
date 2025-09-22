@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaCrown, FaStar, FaCheck, FaLock } from 'react-icons/fa';
+import { FaCrown, FaStar, FaCheck, FaLock, FaUser } from 'react-icons/fa';
 import Link from 'next/link';
 import { PRODUCTS } from '@/utils/stripe';
 
@@ -10,7 +10,7 @@ import { PRODUCTS } from '@/utils/stripe';
 console.log('Subscription page module loaded');
 
 // Subscription types
-type SubscriptionTier = 'free' | 'pro' | 'pro-plus';
+type SubscriptionTier = 'free' | 'pro';
 
 // Feature definitions for each plan
 interface Feature {
@@ -18,46 +18,52 @@ interface Feature {
   included: {
     free: boolean;
     pro: boolean;
-    proPlus: boolean;
   };
 }
 
 const features: Feature[] = [
   {
     name: 'Basic Analytics Dashboard',
-    included: { free: true, pro: true, proPlus: true }
+    included: { free: true, pro: true }
   },
   {
-    name: 'Track up to 5 competitors',
-    included: { free: true, pro: true, proPlus: true }
+    name: 'Track up to 5 channels',
+    included: { free: true, pro: true }
+  },
+  {
+    name: 'Track up to 10 videos',
+    included: { free: true, pro: true }
   },
   {
     name: 'Basic Insights',
-    included: { free: true, pro: true, proPlus: true }
+    included: { free: true, pro: true }
   },
   {
-    name: 'Image Coder Tool',
-    included: { free: false, pro: true, proPlus: true }
+    name: 'Track unlimited channels',
+    included: { free: false, pro: true }
   },
   {
-    name: 'Advanced Trend Analysis',
-    included: { free: false, pro: true, proPlus: true }
-  },
-  {
-    name: 'Track unlimited competitors',
-    included: { free: false, pro: true, proPlus: true }
-  },
-  {
-    name: 'AI Content Recommendations',
-    included: { free: false, pro: false, proPlus: true }
-  },
-  {
-    name: 'Advanced Audience Insights',
-    included: { free: false, pro: false, proPlus: true }
+    name: 'Track unlimited videos',
+    included: { free: false, pro: true }
   },
   {
     name: 'Priority Support',
-    included: { free: false, pro: false, proPlus: true }
+    included: { free: false, pro: true }
+  }
+];
+
+const proFeatures = [
+  {
+    name: 'Unlimited Channel Tracking',
+    description: 'Track unlimited channels and get detailed analytics'
+  },
+  {
+    name: 'Unlimited Video Collections',
+    description: 'Save and organize unlimited videos for analysis and research'
+  },
+  {
+    name: 'Priority Support',
+    description: 'Get faster response times and priority assistance'
   }
 ];
 
@@ -153,18 +159,18 @@ export default function SubscriptionPage() {
   }, []);
   
   // Handle subscription change
-  const handleSubscribe = async (tier: SubscriptionTier) => {
-    if (tier === currentPlan) {
+  const handleSubscribe = async (planType: 'pro') => {
+    if (planType === currentPlan) {
       setMessage({
         type: 'info',
-        text: `You're already subscribed to ${tier === 'pro-plus' ? 'Pro+' : 'Pro'}`
+        text: `You're already subscribed to ${planType === 'pro' ? 'Pro' : 'Pro'}`
       });
       return;
     }
     
     setIsLoading(true);
     setMessage(null);  // Clear any previous messages
-    console.log('Starting subscription process for tier:', tier);
+    console.log('Starting subscription process for tier:', planType);
     
     try {
       // First check if user is logged in
@@ -178,7 +184,7 @@ export default function SubscriptionPage() {
         
         // Store intended subscription in localStorage for after login
         if (typeof window !== 'undefined') {
-          localStorage.setItem('intended_subscription', tier);
+          localStorage.setItem('intended_subscription', planType);
         }
         
         // Show message before redirecting
@@ -199,10 +205,8 @@ export default function SubscriptionPage() {
       // For Stripe integration - only import when needed
       const { getStripe } = await import('@/utils/stripe');
       
-      // Determine the Stripe price ID based on the selected plan
-      const priceId = tier === 'pro' 
-        ? PRODUCTS.PRO.priceId 
-        : PRODUCTS.PRO_PLUS.priceId;
+      // Since we only have Pro plan now, use Pro price ID
+      const priceId = PRODUCTS.PRO.priceId;
       
       console.log('Using price ID:', priceId);
       
@@ -213,10 +217,11 @@ export default function SubscriptionPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Important: include cookies with the request
         body: JSON.stringify({
-          priceId,
-          planType: tier
+          planType,
+          priceId: PRODUCTS.PRO.priceId,
+          successUrl: `${window.location.origin}/subscription?success=true`,
+          cancelUrl: `${window.location.origin}/subscription?canceled=true`,
         }),
       });
       
@@ -248,7 +253,7 @@ export default function SubscriptionPage() {
       console.error('Subscription error:', error);
       setMessage({
         type: 'error',
-        text: 'There was an error processing your subscription. Please try again.'
+        text: 'Failed to start subscription process. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -288,49 +293,74 @@ export default function SubscriptionPage() {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Free Plan */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-transform hover:shadow-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-bold dark:text-white">Free</h2>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">Basic analytics for your channel</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <FaUser className="text-gray-500" /> Free
+              </h2>
+              <p className="mt-1 text-gray-600 dark:text-gray-400">Perfect for getting started</p>
               <div className="mt-4">
-                <span className="text-4xl font-bold dark:text-white">$0</span>
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">$0</span>
                 <span className="text-gray-600 dark:text-gray-400 ml-1">/month</span>
               </div>
             </div>
             
             <div className="p-6">
               <ul className="space-y-3">
-                {features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                      {renderCheckmark(feature.included.free)}
-                    </div>
-                    <span className={`text-sm ${!feature.included.free ? 'text-gray-500 dark:text-gray-500' : 'dark:text-gray-300'}`}>
-                      {feature.name}
-                    </span>
-                  </li>
-                ))}
+                <li className="flex items-center gap-3">
+                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <FaCheck className="text-green-500" />
+                  </div>
+                  <span className="text-sm dark:text-gray-300">
+                    Basic Analytics Dashboard
+                  </span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <FaCheck className="text-green-500" />
+                  </div>
+                  <span className="text-sm dark:text-gray-300">
+                    Track up to 5 channels
+                  </span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <FaCheck className="text-green-500" />
+                  </div>
+                  <span className="text-sm dark:text-gray-300">
+                    Track up to 10 videos
+                  </span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <FaCheck className="text-green-500" />
+                  </div>
+                  <span className="text-sm dark:text-gray-300">
+                    Basic Insights
+                  </span>
+                </li>
               </ul>
               
-              <button 
-                className="mt-6 w-full py-2 px-4 bg-gray-200 dark:bg-gray-700 rounded-full text-gray-800 dark:text-gray-300 font-medium" 
-                disabled
-              >
-                Current Plan
-              </button>
+              <div className="mt-6">
+                <div className="w-full py-2 px-4 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium rounded-lg text-center">
+                  Current Plan
+                </div>
+              </div>
             </div>
           </div>
-          
+
           {/* Pro Plan */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transform transition-transform hover:shadow-lg relative">
-            {/* Highlight if current plan */}
-            {currentPlan === 'pro' && (
-              <div className="absolute top-0 inset-x-0 h-1 bg-blue-500"></div>
-            )}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-2 border-blue-500 relative">
+            {/* Popular Badge */}
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+              <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">
+                Most Popular
+              </span>
+            </div>
             
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-sky-50 dark:from-blue-900/20 dark:to-sky-900/20">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2">
                   <FaCrown className="text-blue-500" /> Pro
@@ -341,7 +371,7 @@ export default function SubscriptionPage() {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">Advanced analytics and tools</p>
+              <p className="mt-1 text-gray-600 dark:text-gray-400">For serious creators</p>
               <div className="mt-4">
                 <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">$29.99</span>
                 <span className="text-gray-600 dark:text-gray-400 ml-1">/month</span>
@@ -356,14 +386,14 @@ export default function SubscriptionPage() {
                 </p>
               </div>
               
-              {/* Pro-specific features only */}
+              {/* Pro specific features only */}
               <ul className="space-y-3">
                 <li className="flex items-center gap-3">
                   <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                     <FaCheck className="text-green-500" />
                   </div>
                   <span className="text-sm dark:text-gray-300">
-                    Image Coder Tool
+                    Track unlimited channels
                   </span>
                 </li>
                 <li className="flex items-center gap-3">
@@ -371,89 +401,7 @@ export default function SubscriptionPage() {
                     <FaCheck className="text-green-500" />
                   </div>
                   <span className="text-sm dark:text-gray-300">
-                    Advanced Trend Analysis
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                    <FaCheck className="text-green-500" />
-                  </div>
-                  <span className="text-sm dark:text-gray-300">
-                    Track unlimited competitors
-                  </span>
-                </li>
-              </ul>
-              
-              <button 
-                onClick={() => handleSubscribe('pro')}
-                disabled={isLoading || currentPlan === 'pro'}
-                className={`mt-6 w-full py-2 px-4 rounded-full font-medium transition-colors ${
-                  currentPlan === 'pro'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 cursor-default'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {isLoading ? 'Processing...' : currentPlan === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
-              </button>
-            </div>
-          </div>
-          
-          {/* Pro Plus Plan */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transform transition-transform hover:shadow-lg relative">
-            {/* Coming Soon Watermark */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
-              <div className="bg-purple-600 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg transform -rotate-12">
-                COMING SOON
-              </div>
-            </div>
-            
-            {/* Highlight if current plan */}
-            {currentPlan === 'pro-plus' && (
-              <div className="absolute top-0 inset-x-0 h-1 bg-purple-500"></div>
-            )}
-            
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-purple-600 dark:text-purple-400 flex items-center gap-2">
-                  <FaStar className="text-purple-500" /> Pro+
-                </h2>
-                {currentPlan === 'pro-plus' && (
-                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">
-                    Current Plan
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">Premium AI-powered insights</p>
-              <div className="mt-4">
-                <span className="text-4xl font-bold text-purple-600 dark:text-purple-400">$39.99</span>
-                <span className="text-gray-600 dark:text-gray-400 ml-1">/month</span>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              {/* Everything in Pro tier plus header */}
-              <div className="mb-4">
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-3">
-                  Everything in Pro tier plus:
-                </p>
-              </div>
-              
-              {/* Pro+ specific features only */}
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                    <FaCheck className="text-green-500" />
-                  </div>
-                  <span className="text-sm dark:text-gray-300">
-                    AI Content Recommendations
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                    <FaCheck className="text-green-500" />
-                  </div>
-                  <span className="text-sm dark:text-gray-300">
-                    Advanced Audience Insights
+                    Track unlimited videos
                   </span>
                 </li>
                 <li className="flex items-center gap-3">
@@ -466,13 +414,21 @@ export default function SubscriptionPage() {
                 </li>
               </ul>
               
-              <button 
-                onClick={() => handleSubscribe('pro-plus')}
-                disabled={true}
-                className="mt-6 w-full py-2 px-4 rounded-full font-medium transition-colors bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-              >
-                Coming Soon
-              </button>
+              <div className="mt-6">
+                {currentPlan === 'pro' ? (
+                  <div className="w-full py-2 px-4 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium rounded-lg text-center">
+                    Current Plan
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSubscribe('pro')}
+                    disabled={isLoading}
+                    className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors"
+                  >
+                    {isLoading ? 'Processing...' : 'Upgrade to Pro'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

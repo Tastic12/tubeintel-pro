@@ -34,16 +34,16 @@ export default function CompetitorsPage() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Free tier limits
-  const FREE_TIER_FOLDER_LIMIT = 1;
+  const FREE_TIER_NICHE_FOLDER_LIMIT = 1;
   const FREE_TIER_CHANNEL_LIMIT = 5;
 
-  // Check if user can create more folders
+  // Check if user can create more niche folders
   const canCreateFolder = () => {
     if (isSubscribed || plan !== 'free') return true;
-    return competitorLists.length < FREE_TIER_FOLDER_LIMIT;
+    return competitorLists.length < FREE_TIER_NICHE_FOLDER_LIMIT;
   };
 
-  // Show upgrade modal for folder limit
+  // Show upgrade modal for niche folder limit
   const showFolderUpgradePrompt = () => {
     setUpgradeReason('folders');
     setShowUpgradeModal(true);
@@ -445,9 +445,11 @@ export default function CompetitorsPage() {
 
   if (isLoading) {
     return (
-      <div className="w-full flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-400"></div>
-        <p className="ml-4 text-white/80">Loading competitors...</p>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading niches...</p>
+        </div>
       </div>
     );
   }
@@ -456,14 +458,14 @@ export default function CompetitorsPage() {
     <div className="w-full max-w-[1200px] mx-auto">
       
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold dark:text-white">Tracked Competitors</h1>
+        <h1 className="text-2xl font-bold dark:text-white">Niche Folders</h1>
         
         {/* Free tier status indicator */}
         {plan === 'free' && !subscriptionLoading && (
           <div className="flex items-center gap-2 text-sm">
             <div className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30">
               <FaCrown size={12} className="inline mr-1" />
-              Free Plan: {competitorLists.length}/{FREE_TIER_FOLDER_LIMIT} folders
+              Free Plan: {competitorLists.length}/{FREE_TIER_NICHE_FOLDER_LIMIT} niche folders
             </div>
           </div>
         )}
@@ -509,7 +511,7 @@ export default function CompetitorsPage() {
             <p className={`text-sm mt-1 ${canCreateFolder() ? 'text-gray-300' : 'text-gray-500'}`}>
               {canCreateFolder() 
                 ? 'Add a new collection' 
-                : `Free plan allows ${FREE_TIER_FOLDER_LIMIT} folder${FREE_TIER_FOLDER_LIMIT === 1 ? '' : 's'}`
+                : `Free plan allows ${FREE_TIER_NICHE_FOLDER_LIMIT} niche folder${FREE_TIER_NICHE_FOLDER_LIMIT === 1 ? '' : 's'}`
               }
             </p>
             {!canCreateFolder() && (
@@ -547,7 +549,10 @@ export default function CompetitorsPage() {
                       <FaEllipsisV size={16} />
                     </button>
                   </div>
-                  <p className="text-gray-300 text-sm mt-1">{list.competitors.length} competitors</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <FaUsers className="h-4 w-4" />
+                    <span>{list.competitors.length} {list.competitors.length === 1 ? 'channel' : 'channels'}</span>
+                  </div>
                 </div>
               </Link>
 
@@ -629,10 +634,9 @@ export default function CompetitorsPage() {
                 {upgradeReason === 'folders' ? 'Folder Limit Reached' : 'Channel Limit Reached'}
               </h3>
               <p className="text-sm text-gray-300 mb-6">
-                {upgradeReason === 'folders' 
-                  ? `You have reached your folder limit on the Free plan. Upgrade to Pro to create more folders.`
-                  : `You have reached your channel limit on the Free plan. Upgrade to Pro to track more channels.`
-                }
+                {plan === 'free' 
+                  ? `You have reached your channel limit on the Free plan. Upgrade to Pro to track more channels.`
+                  : 'Upgrade to Pro to unlock unlimited channel tracking and advanced analytics.'}
               </p>
               <div className="flex gap-3">
                 <button

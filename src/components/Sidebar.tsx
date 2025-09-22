@@ -12,15 +12,18 @@ import {
   FaCrown,
   FaStar,
   FaLock,
-  FaImage
+  FaImage,
+  FaPlay,
+  FaBook
 } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useState, useEffect } from 'react';
 import UpgradeButton from './UpgradeButton';
 import { useSubscription } from '@/hooks/useSubscription';
+import { getTourCompletionStatus, resetTourCompletion } from '@/lib/tour-utils';
 
 // Subscription types
-type SubscriptionTier = 'free' | 'pro' | 'pro-plus';
+type SubscriptionTier = 'free' | 'pro';
 
 interface SidebarItemProps {
   icon: React.ReactNode;
@@ -31,6 +34,7 @@ interface SidebarItemProps {
   locked?: boolean;
   requiredSubscription?: SubscriptionTier;
   currentSubscription?: SubscriptionTier;
+  dataTourTarget?: string;
 }
 
 const SidebarItem = ({ 
@@ -41,7 +45,8 @@ const SidebarItem = ({
   collapsed, 
   locked = false,
   requiredSubscription,
-  currentSubscription 
+  currentSubscription,
+  dataTourTarget
 }: SidebarItemProps): JSX.Element => {
   const { theme } = useTheme();
   
@@ -49,10 +54,7 @@ const SidebarItem = ({
   const isFeatureLocked = locked || (
     requiredSubscription && 
     currentSubscription && 
-    (
-      (requiredSubscription === 'pro' && currentSubscription === 'free') ||
-      (requiredSubscription === 'pro-plus' && (currentSubscription === 'free' || currentSubscription === 'pro'))
-    )
+    requiredSubscription === 'pro' && currentSubscription === 'free'
   );
   
   return (
@@ -63,6 +65,7 @@ const SidebarItem = ({
           ? `${theme === 'dark' ? 'bg-[#00264d] text-blue-200' : 'bg-blue-100 text-blue-800'}` 
           : `${theme === 'dark' ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'}`
       } ${isFeatureLocked ? 'opacity-70' : ''}`}
+      data-tour-target={dataTourTarget}
     >
       <div className={collapsed ? 'flex justify-center items-center w-full' : ''}>
         {icon}
@@ -102,6 +105,8 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
   const { theme } = useTheme();
   const { plan, isLoading } = useSubscription();
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+  const [tourCompleted, setTourCompleted] = useState<boolean>(false);
+  const [tourStatusLoading, setTourStatusLoading] = useState<boolean>(true);
   
   // Update subscription tier when the plan changes
   useEffect(() => {
@@ -113,6 +118,45 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
     }
   }, [plan, isLoading]);
   
+  // Check tour completion status
+  useEffect(() => {
+    const checkTourStatus = async () => {
+      try {
+        const completed = await getTourCompletionStatus();
+        setTourCompleted(completed);
+      } catch (error) {
+        console.error('Error checking tour status in sidebar:', error);
+        // Fallback to localStorage
+        const localCompleted = localStorage.getItem('clikstats-tour-completed') === 'true';
+        setTourCompleted(localCompleted);
+      } finally {
+        setTourStatusLoading(false);
+      }
+    };
+
+    checkTourStatus();
+
+    // Listen for tour completion events
+    const handleTourCompleted = () => {
+      setTourCompleted(true);
+    };
+
+    // Listen for storage changes (tour completion)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'clikstats-tour-completed') {
+        setTourCompleted(e.newValue === 'true');
+      }
+    };
+
+    window.addEventListener('tour-completed', handleTourCompleted);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('tour-completed', handleTourCompleted);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+  
   const isActive = (path: string): boolean => {
     return pathname === path || pathname.startsWith(`${path}/`);
   };
@@ -120,6 +164,15 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
   const bgColor = 'bg-gray-800';
   const borderColor = 'border-gray-700';
   const textColor = 'text-white';
+  
+  const shouldShowUpgradePrompt = (
+    requiredSubscription: string,
+    currentSubscription: SubscriptionTier
+  ): boolean => {
+    return (
+      requiredSubscription === 'pro' && currentSubscription === 'free'
+    );
+  };
   
   return (
     <div 
@@ -157,11 +210,9 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
             <span className={`font-bold text-xl ${textColor}`}>ClikStats</span>
             {subscriptionTier !== 'free' && (
               <span className={`${
-                subscriptionTier === 'pro-plus' 
-                  ? 'text-purple-500 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30' 
-                  : 'text-blue-500 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30'
+                'text-blue-500 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30'
               } text-xs font-medium px-1.5 py-0.5 rounded`}>
-                {subscriptionTier === 'pro-plus' ? 'Pro+' : 'Pro'}
+                Pro
               </span>
             )}
           </Link>
@@ -182,95 +233,75 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           icon={<FaChartLine size={18} />} 
           label="Dashboard" 
           href="/dashboard"
-          isActive={isActive('/dashboard') && !isActive('/dashboard/competitors') && !isActive('/dashboard/insights') && !isActive('/dashboard/settings')} 
+          isActive={isActive('/dashboard') && !isActive('/dashboard/competitors')} 
           collapsed={collapsed}
+          dataTourTarget="dashboard"
         />
+
+        {/* Tracker Section */}
+        <SectionDivider label="TRACKER" collapsed={collapsed} />
+        
         <SidebarItem 
           icon={<FaUsers size={18} />} 
-          label="Competitors" 
+          label="Channels" 
           href="/dashboard/competitors"
           isActive={isActive('/dashboard/competitors')} 
           collapsed={collapsed}
         />
-        <SidebarItem 
-          icon={<FaLightbulb size={18} />} 
-          label="Insights" 
-          href="/dashboard/insights"
-          isActive={isActive('/dashboard/insights')} 
-          collapsed={collapsed}
-        />
-        <SidebarItem 
-          icon={<FaCog size={18} />} 
-          label="Settings" 
-          href="/dashboard/settings"
-          isActive={isActive('/dashboard/settings')} 
-          collapsed={collapsed}
-        />
-      </div>
-      
-      {/* Pro Features */}
-      <SectionDivider label="PRO FEATURES" collapsed={collapsed} />
-      <div className="flex flex-col gap-1 px-2">
-        <SidebarItem 
-          icon={<FaCrown size={18} className="text-blue-400" />} 
-          label="Trend Analysis" 
-          href="/dashboard/trends"
-          isActive={isActive('/dashboard/trends')} 
-          collapsed={collapsed}
-          requiredSubscription="pro"
-          currentSubscription={subscriptionTier}
-        />
-        <SidebarItem 
-          icon={<FaImage size={18} className="text-blue-400" />} 
-          label="Image Coder" 
-          href="/image-coder"
-          isActive={isActive('/image-coder')} 
-          collapsed={collapsed}
-          requiredSubscription="pro"
-          currentSubscription={subscriptionTier}
-        />
-      </div>
-      
-      {/* Pro Plus Features */}
-      <SectionDivider label="PRO+ FEATURES" collapsed={collapsed} />
-      <div className="flex flex-col gap-1 px-2 relative">
-        {/* Coming Soon Overlay for Pro+ Features */}
-        {!collapsed && (
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-lg mx-1">
-            <div className="bg-purple-600 text-white px-3 py-1 rounded-full font-bold text-xs shadow-lg transform -rotate-12">
-              COMING SOON
-            </div>
-          </div>
-        )}
         
+        {/* Videos - now active */}
         <SidebarItem 
-          icon={<FaStar size={18} className="text-purple-400" />} 
-          label="AI Recommendations" 
-          href="/dashboard/recommendations"
-          isActive={isActive('/dashboard/recommendations')} 
+          icon={<FaPlay size={18} />} 
+          label="Videos" 
+          href="/dashboard/videos"
+          isActive={isActive('/dashboard/videos')} 
           collapsed={collapsed}
-          requiredSubscription="pro-plus"
-          currentSubscription={subscriptionTier}
         />
+        
+        {/* Beginner's Guide - now active */}
         <SidebarItem 
-          icon={<FaUsers size={18} className="text-purple-400" />} 
-          label="Advanced Audience" 
-          href="/dashboard/audience"
-          isActive={isActive('/dashboard/audience')} 
+          icon={<FaBook size={18} />} 
+          label="Beginner's Guide" 
+          href="/dashboard/guide"
+          isActive={isActive('/dashboard/guide')} 
           collapsed={collapsed}
-          requiredSubscription="pro-plus"
-          currentSubscription={subscriptionTier}
         />
       </div>
       
       {/* Subscription link */}
-      {!collapsed && subscriptionTier !== 'pro-plus' && (
+      {!collapsed && subscriptionTier !== 'pro' && (
         <div className="mt-4 mx-3">
           <UpgradeButton variant="full" className="w-full" />
         </div>
       )}
       
       <div className="mt-auto px-4">
+        {!collapsed && !tourCompleted && !tourStatusLoading && (
+          <>
+            {/* Tour restart button - only show if tour not completed */}
+            <button
+              onClick={async () => {
+                try {
+                  await resetTourCompletion();
+                  setTourCompleted(false);
+                  // Dispatch custom event to restart tour without page refresh
+                  window.dispatchEvent(new CustomEvent('restart-tour'));
+                } catch (error) {
+                  console.error('Error restarting tour:', error);
+                  // Fallback to localStorage method
+                  localStorage.removeItem('clikstats-tour-completed');
+                  window.dispatchEvent(new CustomEvent('restart-tour'));
+                }
+              }}
+              className="w-full mb-4 flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-2 rounded-full text-sm transition-colors border border-blue-500/30"
+              title="Take Tour"
+            >
+              <FaPlay size={12} />
+              Take Tour
+            </button>
+          </>
+        )}
+
         {!collapsed && (
           <div className={`border-t ${borderColor} pt-4`}>
             <p className={`${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'} text-xs`}>© 2024 ClikStats</p>

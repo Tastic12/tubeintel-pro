@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FaYoutube, FaUser, FaCog } from 'react-icons/fa';
-import { Zap } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { signOut } from '@/lib/supabase';
 import Portal from './Portal';
@@ -20,6 +19,7 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -28,7 +28,15 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Check if click is outside both the dropdown button and dropdown content
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(target) &&
+        dropdownContentRef.current &&
+        !dropdownContentRef.current.contains(target)
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -140,6 +148,8 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
         href="/faq"
         className="block px-4 py-2 hover:bg-white/10 text-white"
         onClick={() => setDropdownOpen(false)}
+        target="_blank"
+        rel="noopener noreferrer"
       >
         FAQ
       </Link>
@@ -159,9 +169,22 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
           </span>
         </div>
       </div>
-      <a href="#" onClick={handleComingSoonClick('Help & Support')} className="block px-4 py-2 hover:bg-white/10 text-white">
+      <a 
+        href="https://discord.gg/pMu8rbADTz" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="block px-4 py-2 hover:bg-white/10 text-white"
+        onClick={() => setDropdownOpen(false)}
+      >
         Help
       </a>
+      <Link 
+        href="/dashboard/settings"
+        className="block px-4 py-2 hover:bg-white/10 text-white"
+        onClick={() => setDropdownOpen(false)}
+      >
+        Settings
+      </Link>
       
       <div className="border-t border-white/30 mt-2 pt-2">
         <button 
@@ -182,20 +205,12 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
 
       {/* User Controls */}
       <div className="flex items-center gap-4">
-        {/* Extension Button */}
-        <button 
-          onClick={handleComingSoonClick('Browser Extension')}
-          className="flex items-center gap-1 text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Zap className="h-4 w-4" />
-          <span className="text-sm font-medium">Extension</span>
-        </button>
-        
         {/* User profile dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button 
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => setDropdownOpen(!dropdownOpen)}
+            data-tour-target="user-menu"
           >
             <div className="w-8 h-8 rounded-full bg-white/20 overflow-hidden flex items-center justify-center">
               <FaUser className="h-4 w-4 text-white" />
@@ -216,7 +231,7 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
             <Portal>
               <div
                 className="fixed right-6 top-16 w-56 bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl shadow-lg z-[2147483647] py-2"
-                ref={dropdownRef}
+                ref={dropdownContentRef}
               >
                 <div className="px-4 py-2 border-b border-white/30 mb-2">
                   <div className="flex items-center gap-2">

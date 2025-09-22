@@ -199,7 +199,9 @@ export default function OnboardingPage() {
         throw new Error('Failed to update profile: ' + updateError.message);
       }
       
-      localStorage.setItem(`user_${user.id}_youtubeChannelId`, channelId);
+      // Set a flag to indicate user just completed onboarding
+      sessionStorage.setItem('just-completed-onboarding', 'true');
+      
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Onboarding error:', err);

@@ -19,6 +19,13 @@ export class SecurityCleanup {
     /^sb-.*$/
   ];
 
+  private static readonly GLOBAL_DATA_KEYS = [
+    'videoLists', // Old global video lists that should be user-specific
+    'competitorLists', // In case this exists globally
+    'currentUserId', // Old user ID storage
+    'user' // Old global user data
+  ];
+
   /**
    * Remove all sensitive authentication tokens from localStorage
    */
@@ -79,6 +86,15 @@ export class SecurityCleanup {
   static cleanAfterLogout(): void {
     // Multiple cleanup passes
     this.cleanAuthTokens();
+    
+    // Also clean up global data that should be user-specific
+    this.GLOBAL_DATA_KEYS.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (error) {
+        console.warn(`Failed to remove global data key ${key}:`, error);
+      }
+    });
     
     setTimeout(() => {
       this.cleanAuthTokens();

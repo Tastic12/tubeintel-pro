@@ -52,6 +52,19 @@ export async function GET(request: NextRequest) {
 
           searchData = await searchResponse.json();
           
+          // Debug: Log the structure of the response
+          console.log('Search API response structure:', {
+            hasItems: !!searchData?.items,
+            itemsLength: searchData?.items?.length || 0,
+            firstItemStructure: searchData?.items?.[0] ? Object.keys(searchData.items[0]) : 'No items'
+          });
+          
+          // Validate response structure
+          if (!searchData || !searchData.items || !Array.isArray(searchData.items)) {
+            console.error('Invalid search response structure:', searchData);
+            throw new Error('Invalid search response structure from YouTube API');
+          }
+          
           // Cache these search results for future use
           searchCache.set(searchCacheKey, {
             data: searchData,
@@ -78,9 +91,10 @@ export async function GET(request: NextRequest) {
       }
       
       // Extract video IDs
-      const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
+      const videoIds = searchData?.items?.map((item: any) => item.id?.videoId).filter(Boolean).join(',');
       
       if (!videoIds) {
+        console.log('No video IDs found in search response:', searchData);
         return NextResponse.json({ items: [] });
       }
 

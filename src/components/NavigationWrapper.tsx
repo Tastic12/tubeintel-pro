@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import TopNav from './TopNav';
+import TourGuide from './TourGuide';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -31,6 +32,9 @@ export default function NavigationWrapper({ children }: NavigationWrapperProps) 
         <TopNav username={username} />
         <main className="flex-1 p-6 overflow-y-auto">{children}</main>
       </div>
+      
+      {/* Tour Guide for new users */}
+      <TourGuide />
     </div>
   );
 } 

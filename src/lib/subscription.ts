@@ -3,7 +3,7 @@
  */
 
 // Types for subscription data
-export type SubscriptionTier = 'free' | 'pro' | 'pro-plus';
+export type SubscriptionTier = 'free' | 'pro';
 
 interface SubscriptionData {
   plan_type: SubscriptionTier;
@@ -60,7 +60,7 @@ export const checkSubscriptionStatus = async (): Promise<SubscriptionData> => {
 
 /**
  * Check if the user has an active subscription
- * Returns true if the user has any active paid subscription (pro or pro-plus)
+ * Returns true if the user has any active paid subscription (pro)
  */
 export const hasActiveSubscription = async (): Promise<boolean> => {
   try {

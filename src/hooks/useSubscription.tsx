@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
 
-export type SubscriptionStatus = 'free' | 'pro' | 'pro-plus';
+export type SubscriptionStatus = 'free' | 'pro';
 export type SubscriptionState = 'loading' | 'active' | 'inactive' | 'error';
 
 interface SubscriptionHook {

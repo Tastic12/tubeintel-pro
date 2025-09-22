@@ -1,6 +1,6 @@
 import { apiCache, createCacheKey } from '@/lib/api-cache';
 
-export type SubscriptionTier = 'free' | 'pro' | 'pro-plus';
+export type SubscriptionTier = 'free' | 'pro';
 
 export interface SubscriptionData {
   plan_type: SubscriptionTier;

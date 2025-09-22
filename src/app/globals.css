@@ -1,3 +1,4 @@
+/* TubeIntel Pro - Dark Theme CSS - Updated */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -46,6 +47,22 @@ body {
     rgb(var(--color-5)),
     rgb(var(--color-6))
   );
+  background-attachment: fixed;
+}
+
+/* Force dark theme styling for any overrides */
+html.dark body,
+.dark body {
+  background: linear-gradient(
+    to right,
+    rgb(0, 11, 24),
+    rgb(0, 23, 45),
+    rgb(0, 38, 77),
+    rgb(2, 56, 110),
+    rgb(0, 73, 141),
+    rgb(0, 82, 162)
+  ) !important;
+  color: rgb(255, 255, 255) !important;
   background-attachment: fixed;
 }
 

@@ -60,19 +60,9 @@ export default function CheckSubscriptionPage() {
                 localStorage.setItem('subscription', 'pro');
                 window.location.reload();
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded mr-4"
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
             >
-              Set Pro Plan
-            </button>
-            
-            <button
-              onClick={() => {
-                localStorage.setItem('subscription', 'pro-plus');
-                window.location.reload();
-              }}
-              className="px-4 py-2 bg-purple-600 text-white rounded"
-            >
-              Set Pro+ Plan
+              Set Pro
             </button>
           </div>
           

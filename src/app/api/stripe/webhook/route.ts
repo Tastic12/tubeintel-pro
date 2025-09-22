@@ -182,41 +182,21 @@ export async function POST(req: NextRequest) {
           break;
         }
         
-        // Determine if this is a plan upgrade
-        const previousPlan = userData.plan_type;
+        // Determine plan type based on product ID
+        let newPlanType: 'free' | 'pro' = 'pro'; // Default to pro for any paid subscription
         
-        // Get the new plan type from items[0].price.product
-        let newPlanType = previousPlan;
-        try {
-          // Get the product ID from the first subscription item's price
-          const priceId = subscription.items.data[0]?.price?.id;
-          
-          if (priceId) {
-            // Get price details to determine the product
-            const price = await stripeInstance.prices.retrieve(priceId);
-            const productId = price.product as string | undefined;
-            
-            if (productId) {
-              // Map product ID to plan type based on your products
-              // This mapping depends on your Stripe product setup
-              if (productId.includes('pro-plus')) {
-                newPlanType = 'pro-plus';
-              } else if (productId.includes('pro')) {
-                newPlanType = 'pro';
-              }
-              
-              console.log(`Subscription updated: ${previousPlan} -> ${newPlanType}`);
-            }
-          }
-        } catch (priceError) {
-          console.error('Error getting price details:', priceError);
-        }
+        // Get the previous plan for upgrade detection
+        const { data: userDetails } = await supabase
+          .from('users')
+          .select('subscription_tier')
+          .eq('id', userData.user_id)
+          .single();
         
-        // Check if this is an upgrade (pro -> pro-plus, or free -> any paid plan)
-        const isUpgrade = 
-          (previousPlan === 'free' && (newPlanType === 'pro' || newPlanType === 'pro-plus')) ||
-          (previousPlan === 'pro' && newPlanType === 'pro-plus');
-          
+        const previousPlan = userDetails?.subscription_tier || 'free';
+        
+        // Check if this is an upgrade (free -> pro)
+        const isUpgrade = previousPlan === 'free' && newPlanType === 'pro';
+        
         // Update subscription status
         const periodEnd = subscription.current_period_end; // Unix timestamp
         const { error } = await supabase

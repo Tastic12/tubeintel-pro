@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-export type SubscriptionStatus = 'free' | 'pro' | 'pro-plus';
+export type SubscriptionStatus = 'free' | 'pro';
 
 export interface UserSubscription {
   status: 'active' | 'canceled' | 'past_due' | 'incomplete' | 'incomplete_expired' | 'trialing';
@@ -147,21 +147,22 @@ export function getUserPlanType(subscription: UserSubscription | null): Subscrip
  * Check if user has access to a specific feature
  */
 export function hasFeatureAccess(
-  feature: 'basic' | 'pro' | 'pro-plus',
-  subscription: UserSubscription | null
+  planType: SubscriptionStatus | null,
+  feature: 'basic' | 'pro',
+  userId?: string
 ): boolean {
-  const planType = getUserPlanType(subscription);
-  
+  // If no plan type, default to free
+  if (!planType) {
+    planType = 'free';
+  }
+
   switch (feature) {
     case 'basic':
-      // All plans have access to basic features
+      // All users have access to basic features
       return true;
     case 'pro':
-      // Pro and Pro+ plans have access to pro features
-      return planType === 'pro' || planType === 'pro-plus';
-    case 'pro-plus':
-      // Only Pro+ has access to pro-plus features
-      return planType === 'pro-plus';
+      // Pro and Pro+ users have access to pro features
+      return planType === 'pro';
     default:
       return false;
   }

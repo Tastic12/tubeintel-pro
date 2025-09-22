@@ -3,10 +3,12 @@
 import { ReactNode } from 'react';
 import { useSubscription, SubscriptionStatus } from '@/hooks/useSubscription';
 import Link from 'next/link';
+import { FaLock } from 'react-icons/fa';
+import UpgradeButton from '@/components/UpgradeButton';
 
 interface SubscriptionGateProps {
   children: ReactNode;
-  minimumPlan?: SubscriptionStatus;
+  minimumPlan: 'pro';
   fallback?: ReactNode;
 }
 
@@ -22,12 +24,10 @@ export default function SubscriptionGate({
 }: SubscriptionGateProps) {
   const { plan, isLoading } = useSubscription();
   
-  // Check if user has access
-  const hasAccess = !isLoading && (
-    (minimumPlan === 'pro' && (plan === 'pro' || plan === 'pro-plus')) ||
-    (minimumPlan === 'pro-plus' && plan === 'pro-plus') ||
-    (minimumPlan === 'free')
-  );
+  // Check if user has required subscription level
+  const hasAccess = 
+    (minimumPlan === 'pro' && plan === 'pro') ||
+    isLoading; // Allow access while loading to prevent flicker
   
   if (isLoading) {
     return (
@@ -49,19 +49,17 @@ export default function SubscriptionGate({
   
   // Default upgrade prompt
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm p-6 text-center">
-      <h3 className="text-lg font-medium text-gray-900 mb-2">
-        {minimumPlan === 'pro-plus' ? 'Pro+ Plan Required' : 'Pro Plan Required'}
-      </h3>
-      <p className="text-gray-600 mb-4">
-        Upgrade your subscription to unlock this feature.
-      </p>
-      <Link 
-        href="/subscription" 
-        className="inline-block py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-      >
-        View Pricing
-      </Link>
+    <div className="text-center py-8 px-4 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+      <div className="mb-4">
+        <FaLock className="mx-auto text-4xl text-gray-400 mb-2" />
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          Pro Plan Required
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
+          This feature is available to Pro subscribers only.
+        </p>
+      </div>
+      <UpgradeButton size="medium" />
     </div>
   );
 } 

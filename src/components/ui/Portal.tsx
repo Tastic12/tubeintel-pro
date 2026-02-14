@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -9,12 +11,14 @@ export default function Portal({ children }: PortalProps) {
   const [mounted, setMounted] = useState(false);
   const elRef = useRef<HTMLDivElement | null>(null);
 
-  if (!elRef.current) {
+  if (!elRef.current && typeof document !== 'undefined') {
     elRef.current = document.createElement('div');
   }
 
   useEffect(() => {
-    const el = elRef.current!;
+    if (!elRef.current) return;
+    
+    const el = elRef.current;
     document.body.appendChild(el);
     setMounted(true);
     return () => {
@@ -22,5 +26,5 @@ export default function Portal({ children }: PortalProps) {
     };
   }, []);
 
-  return mounted ? createPortal(children, elRef.current!) : null;
-} 
+  return mounted && elRef.current ? createPortal(children, elRef.current) : null;
+}

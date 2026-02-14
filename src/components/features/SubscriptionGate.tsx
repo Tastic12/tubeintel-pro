@@ -1,10 +1,9 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { useSubscription, SubscriptionStatus } from '@/hooks/useSubscription';
-import Link from 'next/link';
+import { useSubscription } from '@/hooks/useSubscription';
 import { FaLock } from 'react-icons/fa';
-import UpgradeButton from '@/components/UpgradeButton';
+import UpgradeButton from './UpgradeButton';
 
 interface SubscriptionGateProps {
   children: ReactNode;
@@ -62,4 +61,4 @@ export default function SubscriptionGate({
       <UpgradeButton size="medium" />
     </div>
   );
-} 
+}

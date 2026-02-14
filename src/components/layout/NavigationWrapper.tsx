@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import TopNav from './TopNav';
-import TourGuide from './TourGuide';
+import { TourGuide } from '@/components/features';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -37,4 +37,4 @@ export default function NavigationWrapper({ children }: NavigationWrapperProps) 
       <TourGuide />
     </div>
   );
-} 
+}

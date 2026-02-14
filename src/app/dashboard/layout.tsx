@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import NavigationWrapper from '@/components/NavigationWrapper';
+import { NavigationWrapper } from '@/components/layout';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaYoutube } from 'react-icons/fa';
 import Link from 'next/link';
-import { signUp } from '@/lib/supabase';
+import { secureAuth } from '@/lib/secure-auth';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SignupPage() {
@@ -34,10 +34,13 @@ export default function SignupPage() {
     setError('');
 
     try {
-      await signUp(email, password);
-      setIsSuccess(true);
+      const result = await secureAuth.signUp(email, password);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setIsSuccess(true);
+      }
     } catch (err: any) {
-      console.error('Sign up error:', err);
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);

@@ -1,22 +1,22 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { FaTimes, FaArrowRight, FaArrowLeft, FaPlay } from 'react-icons/fa';
+import { FaTimes, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
 import { getTourCompletionStatus, markTourAsCompleted } from '@/lib/tour-utils';
 
 interface TourStep {
   id: string;
   title: string;
   content: string;
-  target: string; // CSS selector for the element to highlight
+  target: string;
   position: 'top' | 'bottom' | 'left' | 'right';
-  action?: string; // Optional action text
+  action?: string;
 }
 
 const tourSteps: TourStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to ClikStats! 🎉',
+    title: 'Welcome to ClikStats!',
     content: 'Let\'s show you how to get the most out of ClikStats and all the powerful features we have to offer.',
     target: 'body',
     position: 'bottom'
@@ -69,7 +69,6 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Check if user has seen the tour before
   useEffect(() => {
     const checkTourStatus = async () => {
       try {
@@ -77,28 +76,16 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
         const isFromOnboarding = window.location.href.includes('from=onboarding') || 
                                 sessionStorage.getItem('just-completed-onboarding');
         
-        console.log('TourGuide: Checking tour status', {
-          hasSeenTour,
-          isFromOnboarding,
-          shouldStartTour: !hasSeenTour || isFromOnboarding
-        });
-        
-        // Clear the onboarding flag if it exists
         if (isFromOnboarding) {
           sessionStorage.removeItem('just-completed-onboarding');
-          console.log('TourGuide: Cleared onboarding flag, starting tour');
         }
         
         if (!hasSeenTour || isFromOnboarding) {
-          console.log('TourGuide: Starting tour with delay');
-          // Small delay to ensure page is fully loaded
           setTimeout(() => {
             setIsActive(true);
-          }, 1500); // Slightly longer delay for better reliability
+          }, 1500);
         }
       } catch (error) {
-        console.error('TourGuide: Error checking tour status:', error);
-        // Fallback to localStorage check
         const hasSeenTourLocal = localStorage.getItem('clikstats-tour-completed');
         if (!hasSeenTourLocal) {
           setTimeout(() => {
@@ -110,18 +97,26 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
 
     checkTourStatus();
 
-    // Listen for storage changes (in case user completes tour in another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'clikstats-tour-completed' && e.newValue === 'true') {
         setIsActive(false);
       }
     };
 
+    const handleRestartTour = () => {
+      setCurrentStep(0);
+      setIsActive(true);
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('restart-tour', handleRestartTour);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('restart-tour', handleRestartTour);
+    };
   }, []);
 
-  // Update target element and position when step changes
   useEffect(() => {
     if (!isActive) return;
 
@@ -133,7 +128,6 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
       setTargetElement(element);
       updateTooltipPosition(element, step.position);
       
-      // Scroll element into view
       element.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'center',
@@ -169,7 +163,6 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
         break;
     }
 
-    // Keep tooltip within viewport
     const padding = 20;
     top = Math.max(padding, Math.min(window.innerHeight - tooltipHeight - padding, top));
     left = Math.max(padding, Math.min(window.innerWidth - tooltipWidth - padding, left));
@@ -191,36 +184,16 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
     }
   };
 
-  const skipTour = () => {
-    handleComplete();
-  };
-
   const handleComplete = async () => {
-    console.log('TourGuide: Tour completed by user');
-    
     try {
-      // Mark tour as completed in Supabase
       await markTourAsCompleted();
-      console.log('TourGuide: Tour completion saved to database');
-      
-      // Dispatch custom event to notify other components
       window.dispatchEvent(new CustomEvent('tour-completed'));
     } catch (error) {
-      console.error('TourGuide: Error saving tour completion:', error);
-      // Fallback to localStorage is handled in markTourAsCompleted
-      // Still dispatch the event even if database save failed
       window.dispatchEvent(new CustomEvent('tour-completed'));
     }
     
     setIsActive(false);
     onComplete?.();
-  };
-
-  // Allow manual tour restart (for testing or user preference)
-  const restartTour = () => {
-    localStorage.removeItem('clikstats-tour-completed');
-    setCurrentStep(0);
-    setIsActive(true);
   };
 
   if (!isActive) {
@@ -232,13 +205,11 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
 
   return (
     <>
-      {/* Overlay */}
       <div 
         ref={overlayRef}
         className="fixed inset-0 bg-black/20 z-50"
         style={{ pointerEvents: 'none' }}
       >
-        {/* Highlight spotlight for target element */}
         {targetElement && (
           <div
             className="absolute border-4 border-blue-400 rounded-lg shadow-lg"
@@ -253,7 +224,6 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
           />
         )}
 
-        {/* Tooltip */}
         <div
           className="absolute bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-6 max-w-sm"
           style={{
@@ -262,15 +232,13 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
             pointerEvents: 'auto'
           }}
         >
-          {/* Close button */}
           <button
-            onClick={skipTour}
+            onClick={handleComplete}
             className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
             <FaTimes size={16} />
           </button>
 
-          {/* Content */}
           <div className="pr-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               {step.title}
@@ -281,12 +249,11 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
 
             {step.action && (
               <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-lg text-sm mb-4">
-                💡 {step.action}
+                {step.action}
               </div>
             )}
           </div>
 
-          {/* Navigation */}
           <div className="flex items-center justify-between">
             <div className="flex space-x-1">
               {tourSteps.map((_, index) => (
@@ -322,7 +289,6 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
             </div>
           </div>
 
-          {/* Step counter */}
           <div className="text-center mt-3 text-xs text-gray-500 dark:text-gray-400">
             {currentStep + 1} of {tourSteps.length}
           </div>
@@ -330,4 +296,4 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
       </div>
     </>
   );
-} 
+}

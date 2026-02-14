@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SubscriptionStatus, SubscriptionState } from '@/hooks/useSubscription';
 import { supabase } from '@/lib/supabase';
+import { subscriptionService, SubscriptionData } from '@/services/subscription-optimized';
 
 interface SubscriptionContextType {
   plan: SubscriptionStatus;
@@ -33,42 +34,69 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [plan, setPlan] = useState<SubscriptionStatus>('free');
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   
-  const checkSubscription = async () => {
+  /**
+   * Check subscription using the optimized service (with caching)
+   * This is the SINGLE source of truth for subscription data
+   */
+  const checkSubscription = useCallback(async () => {
     try {
-      console.log('Checking subscription status...');
-      const response = await fetch('/api/subscription/status');
-      const data = await response.json();
+      // Use the optimized service which handles caching internally
+      const subscriptionData = await subscriptionService.getSubscriptionStatus();
       
-      if (response.ok) {
-        if (data.subscribed) {
-          console.log('Active subscription found:', data.plan);
-          setStatus('active');
-          setPlan(data.plan as SubscriptionStatus);
-          setExpiresAt(data.subscription?.currentPeriodEnd ? new Date(data.subscription.currentPeriodEnd) : null);
-        } else {
-          console.log('No active subscription found');
-          setStatus('inactive');
-          setPlan('free');
-          setExpiresAt(null);
-        }
+      if (subscriptionData.status === 'active') {
+        setStatus('active');
+        setPlan(subscriptionData.plan_type as SubscriptionStatus);
+        setExpiresAt(subscriptionData.currentPeriodEnd ? new Date(subscriptionData.currentPeriodEnd) : null);
       } else {
-        console.error('Error fetching subscription status:', data.error);
-        setStatus('error');
+        setStatus('inactive');
         setPlan('free');
+        setExpiresAt(null);
       }
     } catch (error) {
       console.error('Failed to check subscription:', error);
       setStatus('error');
       setPlan('free');
     }
-  };
+  }, []);
   
-  // Special function to check after an upgrade
-  const checkAfterUpgrade = async () => {
-    console.log('Checking subscription after upgrade...');
+  /**
+   * Force refresh subscription data (invalidates cache)
+   */
+  const refreshSubscription = useCallback(async () => {
     setStatus('loading');
-    await checkSubscription();
-  };
+    try {
+      // Use the optimized service's refresh method which invalidates cache
+      const subscriptionData = await subscriptionService.refreshSubscription();
+      
+      if (subscriptionData.status === 'active') {
+        setStatus('active');
+        setPlan(subscriptionData.plan_type as SubscriptionStatus);
+        setExpiresAt(subscriptionData.currentPeriodEnd ? new Date(subscriptionData.currentPeriodEnd) : null);
+      } else {
+        setStatus('inactive');
+        setPlan('free');
+        setExpiresAt(null);
+      }
+    } catch (error) {
+      console.error('Failed to refresh subscription:', error);
+      setStatus('error');
+      setPlan('free');
+    }
+  }, []);
+  
+  /**
+   * Special function to check after an upgrade
+   * Uses the optimized service's handleUpgrade method for instant UI update
+   */
+  const checkAfterUpgrade = useCallback(async () => {
+    setStatus('loading');
+    
+    // Small delay to allow webhook processing
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Force refresh from API
+    await refreshSubscription();
+  }, [refreshSubscription]);
   
   // Set up Supabase auth listener to detect login/logout
   useEffect(() => {
@@ -78,15 +106,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event);
-        
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           // User just signed in, check their subscription
-          console.log('User signed in, checking subscription');
           checkSubscription();
         } else if (event === 'SIGNED_OUT') {
-          // User signed out, reset to free plan
-          console.log('User signed out, resetting subscription to free');
+          // User signed out, reset to free plan and clear service cache
+          subscriptionService.clearSession();
           setStatus('inactive');
           setPlan('free');
           setExpiresAt(null);
@@ -94,18 +119,11 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
     );
     
-    // No visibility change handler, no periodic checks
-    
     // Clean up
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-  
-  const refreshSubscription = async () => {
-    setStatus('loading');
-    await checkSubscription();
-  };
+  }, [checkSubscription]);
   
   const value = {
     plan,
@@ -122,4 +140,4 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       {children}
     </SubscriptionContext.Provider>
   );
-} 
+}

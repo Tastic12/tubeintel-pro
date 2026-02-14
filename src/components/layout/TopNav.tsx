@@ -3,13 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FaYoutube, FaUser, FaCog } from 'react-icons/fa';
+import { FaUser } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
-import { signOut } from '@/lib/supabase';
-import Portal from './Portal';
+import { Portal } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
-import { createPortal } from 'react-dom';
 
 interface TopNavProps {
   username?: string;
@@ -17,12 +15,11 @@ interface TopNavProps {
 
 export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownContentRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const pathname = usePathname();
   
   // Close dropdown when clicking outside
@@ -30,7 +27,6 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       
-      // Check if click is outside both the dropdown button and dropdown content
       if (
         dropdownRef.current && 
         !dropdownRef.current.contains(target) &&
@@ -49,19 +45,9 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
 
   const handleLogout = async () => {
     try {
-      // First remove localStorage data
-      localStorage.removeItem('user');
-      localStorage.removeItem('youtubeChannelId');
-      localStorage.removeItem('competitorLists');
-      
-      // Then try Supabase signout
-      await signOut();
-      
-      // Redirect to landing page after logout
+      await logout();
       window.location.href = '/';
     } catch (error) {
-      console.error('Logout error:', error);
-      // Even if there's an error, redirect to the landing page
       window.location.href = '/';
     }
   };
@@ -72,63 +58,30 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
     setDropdownOpen(false);
   };
 
-  const bgColor = theme === 'dark' ? 'bg-gray-800' : 'bg-white';
-  const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-200';
-  const textColor = theme === 'dark' ? 'text-white' : 'text-gray-900';
-
-  const handleSignOut = async () => {
-    try {
-      await logout();
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  const isActive = (path: string) => pathname === path;
-
-  const navLinks = [
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/dashboard/competitors', label: 'Competitors' },
-    { href: '/dashboard/keywords', label: 'Keywords' },
-    { href: '/dashboard/videos', label: 'Videos' },
-  ];
-
-  // Add function to handle billing navigation
   const handleBillingClick = async () => {
     setDropdownOpen(false);
     try {
-      // First check if user is logged in
       const authResponse = await fetch('/api/auth/check', {
         credentials: 'include'
       });
       
-      // If not authenticated, redirect to login
       if (!authResponse.ok) {
-        // Store intended destination in localStorage for after login
         if (typeof window !== 'undefined') {
           localStorage.setItem('intended_destination', '/subscription');
         }
-        
-        // Redirect to login
         window.location.href = '/login?redirectTo=/subscription';
         return;
       }
 
-      // Check subscription status
       const response = await fetch('/api/subscription/status');
       const data = await response.json();
       
       if (data.subscribed) {
-        // If they have a subscription, go to portal
         window.location.href = '/api/stripe/create-portal';
       } else {
-        // If no subscription, go to subscription page
         window.location.href = '/subscription';
       }
     } catch (error) {
-      console.error('Error checking subscription:', error);
-      // If there's an error, default to subscription page
       window.location.href = '/subscription';
     }
   };
@@ -252,4 +205,4 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
       </div>
     </header>
   );
-} 
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaCrown, FaStar } from 'react-icons/fa';
+import { FaCrown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/hooks/useSubscription';
 
@@ -22,12 +22,11 @@ export default function UpgradeButton({
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   
-  // Once component mounts, set isClient to true
   useEffect(() => {
     setIsClient(true);
   }, []);
   
-  // Don't render anything during SSR or while loading to prevent hydration issues
+  // Don't render anything during SSR or while loading
   if (!isClient || isLoading) {
     return null;
   }
@@ -37,25 +36,16 @@ export default function UpgradeButton({
     return null;
   }
   
-  // Handle button click - direct navigation to subscription page
   const handleUpgradeClick = () => {
     router.push('/subscription');
   };
   
-  // Size classes
   const sizeClasses = {
     small: 'text-xs py-1 px-2',
     medium: 'text-sm py-2 px-3',
     large: 'text-base py-3 px-4'
   };
   
-  // Icon based on current plan
-  const icon = <FaCrown className="mr-1.5" />;
-  
-  // Button text based on current plan
-  const buttonText = 'Upgrade to Pro';
-  
-  // Return button with appropriate styling
   return (
     <button
       onClick={handleUpgradeClick}
@@ -67,8 +57,8 @@ export default function UpgradeButton({
         ${className}
       `}
     >
-      {icon}
-      {buttonText}
+      <FaCrown className="mr-1.5" />
+      Upgrade to Pro
     </button>
   );
-} 
+}

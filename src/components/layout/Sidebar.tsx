@@ -6,19 +6,14 @@ import {
   FaYoutube, 
   FaChartLine, 
   FaUsers, 
-  FaLightbulb, 
-  FaCog,
   FaBars,
-  FaCrown,
-  FaStar,
   FaLock,
-  FaImage,
   FaPlay,
   FaBook
 } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useState, useEffect } from 'react';
-import UpgradeButton from './UpgradeButton';
+import { UpgradeButton } from '@/components/features';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getTourCompletionStatus, resetTourCompletion } from '@/lib/tour-utils';
 
@@ -112,9 +107,6 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
   useEffect(() => {
     if (!isLoading) {
       setSubscriptionTier(plan);
-      
-      // For debugging - log the subscription status
-      console.log('Subscription plan from API:', plan);
     }
   }, [plan, isLoading]);
   
@@ -125,7 +117,6 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
         const completed = await getTourCompletionStatus();
         setTourCompleted(completed);
       } catch (error) {
-        console.error('Error checking tour status in sidebar:', error);
         // Fallback to localStorage
         const localCompleted = localStorage.getItem('clikstats-tour-completed') === 'true';
         setTourCompleted(localCompleted);
@@ -161,18 +152,8 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
     return pathname === path || pathname.startsWith(`${path}/`);
   };
   
-  const bgColor = 'bg-gray-800';
-  const borderColor = 'border-gray-700';
   const textColor = 'text-white';
-  
-  const shouldShowUpgradePrompt = (
-    requiredSubscription: string,
-    currentSubscription: SubscriptionTier
-  ): boolean => {
-    return (
-      requiredSubscription === 'pro' && currentSubscription === 'free'
-    );
-  };
+  const borderColor = 'border-gray-700';
   
   return (
     <div 
@@ -209,9 +190,7 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
             </div>
             <span className={`font-bold text-xl ${textColor}`}>ClikStats</span>
             {subscriptionTier !== 'free' && (
-              <span className={`${
-                'text-blue-500 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30'
-              } text-xs font-medium px-1.5 py-0.5 rounded`}>
+              <span className="text-blue-500 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 text-xs font-medium px-1.5 py-0.5 rounded">
                 Pro
               </span>
             )}
@@ -249,7 +228,6 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           collapsed={collapsed}
         />
         
-        {/* Videos - now active */}
         <SidebarItem 
           icon={<FaPlay size={18} />} 
           label="Videos" 
@@ -258,7 +236,6 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           collapsed={collapsed}
         />
         
-        {/* Beginner's Guide - now active */}
         <SidebarItem 
           icon={<FaBook size={18} />} 
           label="Beginner's Guide" 
@@ -277,29 +254,23 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
       
       <div className="mt-auto px-4">
         {!collapsed && !tourCompleted && !tourStatusLoading && (
-          <>
-            {/* Tour restart button - only show if tour not completed */}
-            <button
-              onClick={async () => {
-                try {
-                  await resetTourCompletion();
-                  setTourCompleted(false);
-                  // Dispatch custom event to restart tour without page refresh
-                  window.dispatchEvent(new CustomEvent('restart-tour'));
-                } catch (error) {
-                  console.error('Error restarting tour:', error);
-                  // Fallback to localStorage method
-                  localStorage.removeItem('clikstats-tour-completed');
-                  window.dispatchEvent(new CustomEvent('restart-tour'));
-                }
-              }}
-              className="w-full mb-4 flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-2 rounded-full text-sm transition-colors border border-blue-500/30"
-              title="Take Tour"
-            >
-              <FaPlay size={12} />
-              Take Tour
-            </button>
-          </>
+          <button
+            onClick={async () => {
+              try {
+                await resetTourCompletion();
+                setTourCompleted(false);
+                window.dispatchEvent(new CustomEvent('restart-tour'));
+              } catch (error) {
+                localStorage.removeItem('clikstats-tour-completed');
+                window.dispatchEvent(new CustomEvent('restart-tour'));
+              }
+            }}
+            className="w-full mb-4 flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-2 rounded-full text-sm transition-colors border border-blue-500/30"
+            title="Take Tour"
+          >
+            <FaPlay size={12} />
+            Take Tour
+          </button>
         )}
 
         {!collapsed && (

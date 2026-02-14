@@ -18,7 +18,7 @@ import {
 } from 'chart.js';
 import { getChannelTrendData } from '@/services/metrics/history';
 import { calculateOutlierScore, getTopPerformingVideos } from '@/services/metrics/outliers';
-import UpgradeButton from '@/components/UpgradeButton';
+import { UpgradeButton } from '@/components/features';
 
 // Register ChartJS components
 ChartJS.register(

@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sessionSchema, validateRequest } from '@/lib/validations';
+import { apiSuccess, responses, handleApiError } from '@/lib/api-response';
 
 export async function POST(request: NextRequest) {
   try {
-    const { accessToken, refreshToken, expiresAt } = await request.json();
-
-    if (!accessToken || !refreshToken) {
-      return NextResponse.json(
-        { error: 'Missing required tokens' },
-        { status: 400 }
-      );
+    // Validate request body
+    const validation = await validateRequest(request, sessionSchema);
+    if (!validation.success) {
+      return responses.badRequest(validation.error, validation.errors);
     }
 
+    const { accessToken, refreshToken, expiresAt } = validation.data;
+
     // Calculate cookie expiration
-    const expiresDate = new Date(expiresAt * 1000); // Convert Unix timestamp to Date
+    const expiresDate = new Date(expiresAt * 1000);
     const refreshExpiresDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    // Create response
-    const response = NextResponse.json({ success: true });
+    // Create success response
+    const response = NextResponse.json({ success: true, data: { sessionSet: true } });
 
     // Set secure httpOnly cookies
     response.cookies.set('sb-access-token', accessToken, {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Set session metadata (non-sensitive)
     response.cookies.set('session-active', 'true', {
-      httpOnly: false, // Accessible to client for UI state
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
@@ -46,10 +47,6 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Error setting secure session:', error);
-    return NextResponse.json(
-      { error: 'Failed to set secure session' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 } 

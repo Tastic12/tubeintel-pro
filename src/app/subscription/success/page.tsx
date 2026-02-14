@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FaCheckCircle } from 'react-icons/fa';
 import Link from 'next/link';
-import { isAuthenticated } from '@/lib/supabase';
+import { secureAuth } from '@/lib/secure-auth';
 import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
 
 export default function SubscriptionSuccessPage() {
@@ -28,7 +28,7 @@ export default function SubscriptionSuccessPage() {
     const verifyPayment = async () => {
       try {
         // Check if the user is authenticated
-        const isUserAuthenticated = await isAuthenticated();
+        const isUserAuthenticated = await secureAuth.isAuthenticated();
         
         if (!isUserAuthenticated) {
           router.push(`/login?redirectTo=${encodeURIComponent(`/subscription/success?session_id=${sessionId}`)}`);
@@ -54,9 +54,7 @@ export default function SubscriptionSuccessPage() {
         
         // Immediately refresh the subscription data in the context
         // This ensures the UI throughout the app shows the updated subscription
-        console.log('Refreshing subscription data in context...');
         await refreshSubscription();
-        console.log('Subscription data refreshed!');
         
         setIsLoading(false);
         

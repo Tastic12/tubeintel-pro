@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/supabase';
@@ -13,7 +15,6 @@ import {
   Legend
 } from 'chart.js';
 
-// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -24,26 +25,8 @@ ChartJS.register(
   Legend
 );
 
-// Types
 type MetricType = 'view_count' | 'like_count' | 'comment_count' | 'vph' | 'subscriber_count';
 type TimeSpan = '7d' | '30d' | '90d';
-
-// Define types for our database records
-interface VideoMetricsRecord {
-  recorded_at: string;
-  view_count?: number;
-  like_count?: number;
-  comment_count?: number;
-  vph?: number;
-}
-
-interface ChannelMetricsRecord {
-  recorded_at: string;
-  total_views?: number;
-  total_likes?: number;
-  subscriber_count?: number;
-  video_count?: number;
-}
 
 interface HistoricalMetricsChartProps {
   channelId?: string;
@@ -62,6 +45,7 @@ export default function HistoricalMetricsChart({
   title,
   height = 300
 }: HistoricalMetricsChartProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [chartData, setChartData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,13 +56,11 @@ export default function HistoricalMetricsChart({
         setIsLoading(true);
         setError(null);
         
-        // Get current user
         const user = await getCurrentUser();
         if (!user) {
           throw new Error('User not authenticated');
         }
         
-        // Calculate date range based on timeSpan
         const endDate = new Date();
         const startDate = new Date();
         
@@ -94,9 +76,9 @@ export default function HistoricalMetricsChart({
             break;
         }
         
-        // Build the query based on whether we're looking at channel or video metrics
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let metricsData: any[] = [];
-        let queryError = null;
+        let queryError: Error | null = null;
         
         if (videoId) {
           const response = await supabase
@@ -111,13 +93,12 @@ export default function HistoricalMetricsChart({
           metricsData = response.data || [];
           queryError = response.error;
         } else if (channelId) {
-          // For channel metrics, we need to map the metric name to the channel table column
           const channelMetricMap: Record<MetricType, string> = {
             view_count: 'total_views',
             like_count: 'total_likes',
             subscriber_count: 'subscriber_count',
-            vph: 'total_views', // Not directly stored, but we could calculate
-            comment_count: 'total_views' // Not directly stored
+            vph: 'total_views',
+            comment_count: 'total_views'
           };
           
           const channelMetric = channelMetricMap[metric];
@@ -156,24 +137,21 @@ export default function HistoricalMetricsChart({
           return;
         }
         
-        // Format data for the chart
-        const labels = metricsData.map(item => 
-          new Date(item.recorded_at).toLocaleDateString()
+        const labels = metricsData.map((item: Record<string, unknown>) => 
+          new Date(item.recorded_at as string).toLocaleDateString()
         );
         
-        const metricValues = metricsData.map(item => {
-          // Get the appropriate metric value
+        const metricValues = metricsData.map((item: Record<string, unknown>) => {
           if (videoId) {
-            return item[metric] || 0;
+            return (item[metric] as number) || 0;
           } else if (channelId) {
-            // Map channel table columns to metrics
             switch (metric) {
               case 'view_count': 
-                return item.total_views || 0;
+                return (item.total_views as number) || 0;
               case 'subscriber_count':
-                return item.subscriber_count || 0;
+                return (item.subscriber_count as number) || 0;
               case 'like_count':
-                return item.total_likes || 0;
+                return (item.total_likes as number) || 0;
               default:
                 return 0;
             }
@@ -191,9 +169,9 @@ export default function HistoricalMetricsChart({
             tension: 0.4
           }]
         });
-      } catch (error: any) {
-        console.error('Error fetching historical metrics:', error);
-        setError(error.message || 'Failed to load historical data');
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load historical data';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -202,9 +180,8 @@ export default function HistoricalMetricsChart({
     fetchHistoricalData();
   }, [channelId, videoId, metric, timeSpan]);
   
-  // Helper function to format metric labels
-  const formatMetricLabel = (metric: MetricType): string => {
-    switch (metric) {
+  const formatMetricLabel = (metricName: MetricType): string => {
+    switch (metricName) {
       case 'view_count':
         return 'Views';
       case 'like_count':
@@ -220,7 +197,6 @@ export default function HistoricalMetricsChart({
     }
   };
   
-  // Chart options
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -263,7 +239,7 @@ export default function HistoricalMetricsChart({
   if (!chartData || chartData.labels.length === 0) {
     return (
       <div className="flex items-center justify-center" style={{ height }}>
-        <p>No historical data available yet. As you use TubeIntel Pro, we'll collect data daily to build this chart.</p>
+        <p>No historical data available yet. As you use ClikStats, we&apos;ll collect data daily to build this chart.</p>
       </div>
     );
   }
@@ -273,4 +249,4 @@ export default function HistoricalMetricsChart({
       <Line options={options} data={chartData} />
     </div>
   );
-} 
+}

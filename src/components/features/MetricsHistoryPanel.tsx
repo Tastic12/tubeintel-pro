@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { FaHistory, FaChartLine } from 'react-icons/fa';
 import HistoricalMetricsChart from './HistoricalMetricsChart';
@@ -10,7 +12,6 @@ export default function MetricsHistoryPanel({ channelId }: MetricsHistoryPanelPr
   const [selectedTimeSpan, setSelectedTimeSpan] = useState<'7d' | '30d' | '90d'>('30d');
   const [selectedMetric, setSelectedMetric] = useState<'view_count' | 'subscriber_count' | 'like_count'>('view_count');
   
-  // Format metric name for display
   const formatMetricName = (metric: string) => {
     switch (metric) {
       case 'view_count': return 'Views';
@@ -91,10 +92,10 @@ export default function MetricsHistoryPanel({ channelId }: MetricsHistoryPanelPr
         <div className="flex gap-2 items-start">
           <FaChartLine className="mt-1 flex-shrink-0" />
           <p>
-            TubeIntel Pro automatically collects daily metrics to build accurate trend data. Historical charts will populate as data is collected. For accurate 30-day trends, the system needs at least 30 days of data.
+            ClikStats automatically collects daily metrics to build accurate trend data. Historical charts will populate as data is collected. For accurate 30-day trends, the system needs at least 30 days of data.
           </p>
         </div>
       </div>
     </div>
   );
-} 
+}

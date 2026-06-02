@@ -16,9 +16,10 @@ type LimiterSpec = {
 };
 
 const LIMITS: Record<LimiterId, LimiterSpec> = {
-  'sync-videos': { perMinute: 5, perDay: 30 },
-  'competitors-init': { perMinute: 10, perDay: 50 },
-  'competitors-refresh': { perMinute: 3, perDay: 20 },
+  // search-only limits (100 YouTube quota units per call)
+  'sync-videos': { perMinute: 10, perDay: 100 },
+  'competitors-init': { perMinute: 20, perDay: 150 },
+  'competitors-refresh': { perMinute: 10, perDay: 80 },
 };
 
 let warnedAboutMissingEnv = false;

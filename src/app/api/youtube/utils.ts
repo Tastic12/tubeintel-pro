@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { estimateYouTubeApiUnits, getServiceAdmin, logYoutubeApiUsage } from '@/lib/admin';
 import { checkRateLimit } from '@/lib/rate-limit';
+import {
+  getCachedYouTubeResponse,
+  setCachedYouTubeResponse,
+} from '@/lib/youtube-api-cache';
 import type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
 export type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
@@ -11,8 +15,6 @@ const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 if (!YOUTUBE_API_KEY) {
   console.error('YouTube API key is not configured. Please set YOUTUBE_API_KEY in your environment variables.');
 }
-
-const cache = new Map<string, { data: unknown; timestamp: number }>();
 
 const CACHE_DURATIONS = {
   CHANNEL: 24 * 60 * 60 * 1000,
@@ -75,7 +77,8 @@ async function callYouTubeApi(
   context?: YouTubeFetchContext
 ) {
   const rateLimitKey = context?.rateLimitKey ?? context?.userId ?? 'anonymous';
-  if (context?.limiterId) {
+  // Only rate-limit search — it costs 100 YouTube quota units per call.
+  if (context?.limiterId && endpoint === 'search') {
     const rl = await checkRateLimit(rateLimitKey, context.limiterId);
     if (!rl.ok) {
       return {
@@ -110,6 +113,13 @@ async function callYouTubeApi(
   return { ok: true as const, data };
 }
 
+function isRateLimited(result: {
+  status: number;
+  rateLimited?: boolean;
+}): boolean {
+  return result.status === 429 || Boolean(result.rateLimited);
+}
+
 export async function fetchFromYouTubeApi(
   endpoint: string,
   params: Record<string, string>,
@@ -127,7 +137,7 @@ export async function fetchFromYouTubeApi(
     const { normal: cacheDuration, extended: extendedCacheDuration } =
       getCacheDuration(endpoint, params);
 
-    const cachedData = cache.get(cacheKey);
+    const cachedData = await getCachedYouTubeResponse(cacheKey);
     const now = Date.now();
 
     if (cachedData) {
@@ -141,15 +151,11 @@ export async function fetchFromYouTubeApi(
       if (isStaleData) {
         const result = await callYouTubeApi(endpoint, params, context);
         if (result.ok) {
-          cache.set(cacheKey, { data: result.data, timestamp: now });
+          await setCachedYouTubeResponse(cacheKey, result.data);
           return NextResponse.json(result.data);
         }
 
-        if (result.status === 429 || ('rateLimited' in result && result.rateLimited)) {
-          cache.set(cacheKey, {
-            data: cachedData.data,
-            timestamp: now - cacheDuration / 2,
-          });
+        if (isRateLimited(result)) {
           return NextResponse.json(cachedData.data);
         }
 
@@ -162,13 +168,16 @@ export async function fetchFromYouTubeApi(
 
     const result = await callYouTubeApi(endpoint, params, context);
     if (!result.ok) {
+      if (cachedData) {
+        return NextResponse.json(cachedData.data);
+      }
       return NextResponse.json(
         { error: `YouTube API Error: ${result.statusText}`, details: result.errorData },
         { status: result.status }
       );
     }
 
-    cache.set(cacheKey, { data: result.data, timestamp: now });
+    await setCachedYouTubeResponse(cacheKey, result.data);
     return NextResponse.json(result.data);
   } catch (error) {
     console.error('Server error in YouTube API request:', error);

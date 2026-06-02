@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
 import { getYouTubeFetchContext } from '@/lib/request-auth';
+import {
+  getCachedYouTubeResponse,
+  setCachedYouTubeResponse,
+} from '@/lib/youtube-api-cache';
 
-const searchCache = new Map<string, { data: unknown; timestamp: number }>();
 const SEARCH_CACHE_DURATION = 8 * 60 * 60 * 1000;
+
+function routeSearchCacheKey(channelId: string, maxResults: string) {
+  return `route-search:${channelId}:${maxResults}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,12 +27,16 @@ export async function GET(request: NextRequest) {
 
     if (channelId) {
       const ctx = await getYouTubeFetchContext('sync-videos');
-      const searchCacheKey = `search:${channelId}:${maxResults}`;
-      const cachedSearch = searchCache.get(searchCacheKey);
+      const searchCacheKey = routeSearchCacheKey(channelId, maxResults);
+      const cachedSearch = await getCachedYouTubeResponse(searchCacheKey);
       let searchData: { items?: Array<{ id?: { videoId?: string } }> };
 
       try {
-        if (!cachedSearch || Date.now() - cachedSearch.timestamp > SEARCH_CACHE_DURATION) {
+        const cacheExpired =
+          !cachedSearch ||
+          Date.now() - cachedSearch.timestamp > SEARCH_CACHE_DURATION;
+
+        if (cacheExpired) {
           const searchResponse = await fetchFromYouTubeApi(
             'search',
             {
@@ -40,7 +51,9 @@ export async function GET(request: NextRequest) {
 
           if (!searchResponse.ok) {
             const errBody = await searchResponse.json().catch(() => ({}));
-            if (searchResponse.status === 429) {
+            if (cachedSearch) {
+              searchData = cachedSearch.data as typeof searchData;
+            } else if (searchResponse.status === 429) {
               return NextResponse.json(
                 { error: errBody?.error || 'Rate limit exceeded' },
                 {
@@ -48,19 +61,16 @@ export async function GET(request: NextRequest) {
                   headers: searchResponse.headers,
                 }
               );
+            } else {
+              throw new Error(errBody?.error || 'Failed to fetch video IDs');
             }
-            throw new Error(errBody?.error || 'Failed to fetch video IDs');
+          } else {
+            searchData = await searchResponse.json();
+            if (!searchData?.items || !Array.isArray(searchData.items)) {
+              throw new Error('Invalid search response structure from YouTube API');
+            }
+            await setCachedYouTubeResponse(searchCacheKey, searchData);
           }
-
-          searchData = await searchResponse.json();
-          if (!searchData?.items || !Array.isArray(searchData.items)) {
-            throw new Error('Invalid search response structure from YouTube API');
-          }
-
-          searchCache.set(searchCacheKey, {
-            data: searchData,
-            timestamp: Date.now(),
-          });
         } else {
           searchData = cachedSearch.data as typeof searchData;
         }

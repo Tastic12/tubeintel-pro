@@ -49,6 +49,12 @@ export interface Video {
   commentCount: number;
   vph: number; // Views Per Hour
   performanceScore?: number;
+  /** ISO 8601 duration from YouTube — used for SQL outlier scoring only */
+  durationIso?: string | null;
+  /** SQL-computed views/median ratio — consumed by calculateOutlierScore */
+  outlierScore?: number | null;
+  /** Channel median views used for SQL score — tooltip fallback */
+  outlierMedianViews?: number | null;
 }
 
 // Alert types

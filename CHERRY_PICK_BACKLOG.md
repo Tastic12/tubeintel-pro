@@ -3,20 +3,14 @@
 Features worth porting from `C:\Cursor Projects\ClikStats` into ClikStats V2.
 Keep V2’s UI/shell; bring over backend logic and product features from the list below.
 
-**Status:** Rate limiting + admin quota — done (2026-06-02).
+**Status:** Rate limiting + admin quota — done (2026-06-02).  
+**Status:** SQL outlier intelligence — done (2026-06-02). Backend-only; existing UI unchanged.
 
 ---
 
-## Priority 2 — SQL outlier intelligence
+## ~~Priority 2 — SQL outlier intelligence~~ ✅ Done
 
-**Source:** `lib/outliers.ts`, `supabase/migrations/*outlier*.sql`
-
-- Postgres RPCs: `recompute_outlier_scores`, niche/velocity variants
-- Unified outlier feed across own channel + all competitors
-- Shorts detection via `classify_as_short()` (portrait + duration)
-- Replace V2’s client-side median math in `src/services/metrics/outliers.ts`
-
-**Why:** Cheaper at scale, smarter scoring, competitors-first insights.
+Implemented via `video_outlier_cache` table, `/api/outliers/sync`, and enhanced `calculateOutlierScore` fallback. Run migration `20260602_outlier_scores_v2.sql` in Supabase.
 
 ---
 

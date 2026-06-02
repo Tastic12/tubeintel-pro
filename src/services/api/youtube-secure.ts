@@ -1,10 +1,11 @@
 import { Video, Channel, VideoMetadata } from '@/types';
 import { IYouTubeService } from './interfaces';
+import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
 
 // Format a YouTube video API response to our app's Video type
 const formatVideo = (item: any): Video => {
-  const { id, snippet, statistics = {} } = item;
-  
+  const { id, snippet, statistics = {}, contentDetails } = item;
+
   return {
     id: id,
     youtubeId: id,
@@ -16,7 +17,8 @@ const formatVideo = (item: any): Video => {
     viewCount: parseInt(statistics.viewCount || '0'),
     likeCount: parseInt(statistics.likeCount || '0'),
     commentCount: parseInt(statistics.commentCount || '0'),
-    vph: calculateVPH(parseInt(statistics.viewCount || '0'), snippet.publishedAt)
+    vph: calculateVPH(parseInt(statistics.viewCount || '0'), snippet.publishedAt),
+    durationIso: contentDetails?.duration ?? null,
   };
 };
 
@@ -170,17 +172,18 @@ export const secureYoutubeService: IYouTubeService = {
   getVideosByChannelId: async (channelId: string, maxResults = 10): Promise<Video[]> => {
     try {
       const response = await fetch(`/api/youtube/videos?channelId=${channelId}&maxResults=${maxResults}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch channel videos: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.items && data.items.length > 0) {
-        return data.items.map(formatVideo);
+        const videos = data.items.map(formatVideo);
+        return attachSqlOutlierScores(videos, channelId);
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error fetching channel videos:', error);

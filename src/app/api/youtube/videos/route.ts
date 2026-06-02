@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
       return fetchFromYouTubeApi(
         'videos',
-        { part: 'snippet,statistics', id: videoIds },
+        { part: 'snippet,statistics,contentDetails', id: videoIds },
         { userId: user?.id }
       );
     }

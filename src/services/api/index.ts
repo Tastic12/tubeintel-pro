@@ -63,49 +63,22 @@ const channelsApi = {
 // Videos API
 const videosApi = {
   getAllVideos: async (): Promise<Video[]> => {
-    try {
-      // Get channel ID directly (cached) instead of full channel data
-      const channelId = await getChannelIdForVideos();
-      return await youtubeApiService.getVideosByChannelId(channelId);
-    } catch (error) {
-      console.error('Error fetching videos from YouTube API:', error);
-      return mockVideos; // Fallback to mock data
-    }
+    const channelId = await getChannelIdForVideos();
+    return youtubeApiService.getVideosByChannelId(channelId);
   },
   
   getVideoById: async (id: string): Promise<Video | null> => {
-    try {
-      return await youtubeApiService.getVideoById(id);
-    } catch (error) {
-      console.error('Error fetching video from YouTube API:', error);
-      return mockVideos.find(video => video.id === id) || null; // Fallback to mock data
-    }
+    return youtubeApiService.getVideoById(id);
   },
   
   getRecentVideos: async (limit: number = 5): Promise<Video[]> => {
-    try {
-      // Get channel ID directly (cached) instead of full channel data
-      const channelId = await getChannelIdForVideos();
-      const videos = await youtubeApiService.getVideosByChannelId(channelId, limit);
-      return videos.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
-    } catch (error) {
-      console.error('Error fetching recent videos from YouTube API:', error);
-      // Fallback to mock data
-      return mockVideos
-        .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())
-        .slice(0, limit);
-    }
+    const channelId = await getChannelIdForVideos();
+    const videos = await youtubeApiService.getVideosByChannelId(channelId, limit);
+    return videos.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
   },
   
   getTopPerformingVideos: async (limit: number = 5): Promise<Video[]> => {
-    try {
-      // Get trending videos
-      return await youtubeApiService.getTopVideos(limit);
-    } catch (error) {
-      console.error('Error fetching top videos from YouTube API:', error);
-      // Fallback to mock data
-      return mockVideos.sort((a, b) => b.vph - a.vph).slice(0, limit);
-    }
+    return youtubeApiService.getTopVideos(limit);
   }
 };
 

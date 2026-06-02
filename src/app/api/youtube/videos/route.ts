@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
-import { enforceYouTubeRateLimit } from '@/lib/request-auth';
+import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 const searchCache = new Map<string, { data: unknown; timestamp: number }>();
 const SEARCH_CACHE_DURATION = 8 * 60 * 60 * 1000;
@@ -11,17 +11,15 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id');
     const channelId = searchParams.get('channelId');
     const maxResults = searchParams.get('maxResults') || '10';
-    const part = searchParams.get('part') || 'snippet,statistics';
-
-    const limiterId = channelId ? 'sync-videos' : 'competitors-refresh';
-    const { blocked, user } = await enforceYouTubeRateLimit(limiterId);
-    if (blocked) return blocked;
+    const part = searchParams.get('part') || 'snippet,statistics,contentDetails';
 
     if (id) {
-      return fetchFromYouTubeApi('videos', { part, id }, { userId: user?.id });
+      const ctx = await getYouTubeFetchContext('competitors-refresh');
+      return fetchFromYouTubeApi('videos', { part, id }, ctx);
     }
 
     if (channelId) {
+      const ctx = await getYouTubeFetchContext('sync-videos');
       const searchCacheKey = `search:${channelId}:${maxResults}`;
       const cachedSearch = searchCache.get(searchCacheKey);
       let searchData: { items?: Array<{ id?: { videoId?: string } }> };
@@ -37,11 +35,21 @@ export async function GET(request: NextRequest) {
               order: 'date',
               type: 'video',
             },
-            { userId: user?.id }
+            ctx
           );
 
           if (!searchResponse.ok) {
-            throw new Error('Failed to fetch video IDs');
+            const errBody = await searchResponse.json().catch(() => ({}));
+            if (searchResponse.status === 429) {
+              return NextResponse.json(
+                { error: errBody?.error || 'Rate limit exceeded' },
+                {
+                  status: 429,
+                  headers: searchResponse.headers,
+                }
+              );
+            }
+            throw new Error(errBody?.error || 'Failed to fetch video IDs');
           }
 
           searchData = await searchResponse.json();
@@ -80,14 +88,15 @@ export async function GET(request: NextRequest) {
       return fetchFromYouTubeApi(
         'videos',
         { part: 'snippet,statistics,contentDetails', id: videoIds },
-        { userId: user?.id }
+        ctx
       );
     }
 
+    const ctx = await getYouTubeFetchContext('competitors-refresh');
     return fetchFromYouTubeApi(
       'videos',
       { part, chart: 'mostPopular', regionCode: 'US', maxResults },
-      { userId: user?.id }
+      ctx
     );
   } catch (error) {
     console.error('Error in videos route:', error);

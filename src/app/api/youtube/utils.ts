@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { estimateYouTubeApiUnits, getServiceAdmin, logYoutubeApiUsage } from '@/lib/admin';
+import { checkRateLimit } from '@/lib/rate-limit';
+import type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
+
+export type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -22,10 +26,6 @@ const EXTENDED_CACHE_DURATIONS = {
   VIDEO: 24 * 60 * 60 * 1000,
   SEARCH: 12 * 60 * 60 * 1000,
   VIDEO_STATS: 4 * 60 * 60 * 1000,
-};
-
-export type YouTubeFetchContext = {
-  userId?: string | null;
 };
 
 function getCacheDuration(endpoint: string, params: Record<string, string>) {
@@ -74,6 +74,20 @@ async function callYouTubeApi(
   params: Record<string, string>,
   context?: YouTubeFetchContext
 ) {
+  const rateLimitKey = context?.rateLimitKey ?? context?.userId ?? 'anonymous';
+  if (context?.limiterId) {
+    const rl = await checkRateLimit(rateLimitKey, context.limiterId);
+    if (!rl.ok) {
+      return {
+        ok: false as const,
+        status: rl.status,
+        statusText: 'Too Many Requests',
+        errorData: { error: rl.message },
+        rateLimited: true as const,
+      };
+    }
+  }
+
   const searchParams = new URLSearchParams({
     ...params,
     key: YOUTUBE_API_KEY!,
@@ -131,7 +145,7 @@ export async function fetchFromYouTubeApi(
           return NextResponse.json(result.data);
         }
 
-        if (result.status === 429) {
+        if (result.status === 429 || ('rateLimited' in result && result.rateLimited)) {
           cache.set(cacheKey, {
             data: cachedData.data,
             timestamp: now - cacheDuration / 2,

@@ -9,6 +9,8 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
+import { useShortsPreference } from '@/lib/preferences';
+import { filterVideosByShortsPreference } from '@/lib/video-short';
 
 // Format number to compact form
 const formatNumber = (num: number): string => {
@@ -22,6 +24,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   const searchParams = useSearchParams();
   const collectionName = searchParams.get('name') || 'Video Collection';
   const { plan, isSubscribed } = useSubscription();
+  const { hideShorts } = useShortsPreference();
 
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,8 +81,9 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
         publishedAt: v.publishedAt ? new Date(v.publishedAt) : new Date(),
         viewCount: v.viewCount || 0,
         likeCount: v.likeCount || 0,
-        commentCount: 0, // Default comment count
-        vph: 0 // Default VPH (Views Per Hour)
+        commentCount: 0,
+        vph: 0,
+        durationIso: v.duration || null,
       }));
       
       setVideos(formattedVideos);
@@ -146,7 +150,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
           thumbnailUrl: videoData.thumbnailUrl,
           channelName: '', // Video type doesn't have channelName, use empty string
           channelId: videoData.channelId,
-          duration: '', // Video type doesn't have duration, use empty string
+          duration: videoData.durationIso ?? '',
           viewCount: videoData.viewCount,
           likeCount: videoData.likeCount,
           publishedAt: videoData.publishedAt.toISOString() // Convert Date to string
@@ -166,8 +170,9 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
         publishedAt: trackedVideo.publishedAt ? new Date(trackedVideo.publishedAt) : new Date(),
         viewCount: trackedVideo.viewCount || 0,
         likeCount: trackedVideo.likeCount || 0,
-        commentCount: 0, // Default comment count
-        vph: 0 // Default VPH (Views Per Hour)
+        commentCount: 0,
+        vph: 0,
+        durationIso: trackedVideo.duration || videoData.durationIso || null,
       };
       
       setVideos(prev => [...prev, newVideo]);
@@ -217,10 +222,10 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   // Function to get sorted and filtered videos
   const getSortedAndFilteredVideos = () => {
     // First filter by search query
-    let filteredVideos = videos;
+    let filteredVideos = filterVideosByShortsPreference(videos, hideShorts);
     if (videoSearchQuery.trim()) {
       const query = videoSearchQuery.toLowerCase();
-      filteredVideos = videos.filter(video =>
+      filteredVideos = filteredVideos.filter(video =>
         video.title.toLowerCase().includes(query) ||
         video.description.toLowerCase().includes(query)
       );

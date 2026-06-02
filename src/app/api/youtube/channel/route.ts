@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
-import { enforceYouTubeRateLimit } from '@/lib/request-auth';
+import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 function extractUsername(url: string): string {
   let cleanUrl = url.replace(/^(https?:\/\/)?(www\.)?/, '');
@@ -22,10 +22,8 @@ function extractUsername(url: string): string {
 }
 
 export async function GET(request: Request) {
-  const { blocked, user } = await enforceYouTubeRateLimit('competitors-init');
-  if (blocked) return blocked;
-
   try {
+    const ctx = await getYouTubeFetchContext('competitors-init');
     const { searchParams } = new URL(request.url);
     const customUrl = searchParams.get('url');
 
@@ -51,7 +49,7 @@ export async function GET(request: Request) {
             part: 'snippet',
             maxResults: '5',
           },
-          { userId: user?.id }
+          ctx
         );
         const data = await searchResponse.json();
 

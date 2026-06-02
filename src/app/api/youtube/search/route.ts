@@ -1,14 +1,12 @@
 import { NextRequest } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
-import { enforceYouTubeRateLimit } from '@/lib/request-auth';
+import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { blocked, user } = await enforceYouTubeRateLimit('competitors-init');
-  if (blocked) return blocked;
-
   try {
+    const ctx = await getYouTubeFetchContext('competitors-init');
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('q');
     const channelId = searchParams.get('channelId');
@@ -27,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (query) params.q = query;
     if (channelId) params.channelId = channelId;
 
-    return fetchFromYouTubeApi('search', params, { userId: user?.id });
+    return fetchFromYouTubeApi('search', params, ctx);
   } catch (error) {
     console.error('Error in search route:', error);
     return Response.json(

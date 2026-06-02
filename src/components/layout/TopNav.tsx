@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Portal } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
+import { useShortsPreference } from '@/lib/preferences';
 
 interface TopNavProps {
   username?: string;
@@ -21,6 +22,7 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
   const router = useRouter();
   const { logout } = useAuth();
   const pathname = usePathname();
+  const { hideShorts, setHideShorts, mounted } = useShortsPreference();
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -138,6 +140,34 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
       >
         Settings
       </Link>
+
+      <div className="px-4 py-3 border-t border-white/20 mt-1">
+        <button
+          type="button"
+          onClick={() => mounted && setHideShorts(!hideShorts)}
+          disabled={!mounted}
+          className="flex w-full items-center justify-between gap-3 disabled:opacity-50"
+        >
+          <span className="text-left">
+            <span className="block text-sm font-medium text-white">Hide Shorts</span>
+            <span className="block text-[11px] text-white/60">
+              Filter out videos under 60 seconds
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+              hideShorts ? 'bg-blue-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                hideShorts ? 'translate-x-4' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
+      </div>
       
       <div className="border-t border-white/30 mt-2 pt-2">
         <button 

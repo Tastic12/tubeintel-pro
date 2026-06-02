@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
-import { enforceYouTubeRateLimit } from '@/lib/request-auth';
+import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 export async function GET(request: NextRequest) {
-  const { blocked, user } = await enforceYouTubeRateLimit('competitors-init');
-  if (blocked) return blocked;
-
   try {
+    const ctx = await getYouTubeFetchContext('competitors-init');
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
     const username = searchParams.get('username');
@@ -14,7 +12,7 @@ export async function GET(request: NextRequest) {
     const part = searchParams.get('part') || 'snippet,statistics';
 
     if (id) {
-      return fetchFromYouTubeApi('channels', { part, id }, { userId: user?.id });
+      return fetchFromYouTubeApi('channels', { part, id }, ctx);
     }
 
     if (forUsername || username) {
@@ -40,7 +38,7 @@ export async function GET(request: NextRequest) {
               part: 'snippet',
               maxResults: '5',
             },
-            { userId: user?.id }
+            ctx
           );
           const searchData = await searchResponse.json();
 
@@ -52,7 +50,7 @@ export async function GET(request: NextRequest) {
             const channelResponse = await fetchFromYouTubeApi(
               'channels',
               { part, id: channelIds },
-              { userId: user?.id }
+              ctx
             );
             const channelData = await channelResponse.json();
 

@@ -5,19 +5,24 @@ import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
 // Format a YouTube video API response to our app's Video type
 const formatVideo = (item: any): Video => {
   const { id, snippet, statistics = {}, contentDetails } = item;
+  const thumb =
+    snippet?.thumbnails?.medium?.url ||
+    snippet?.thumbnails?.high?.url ||
+    snippet?.thumbnails?.default?.url ||
+    '';
 
   return {
     id: id,
     youtubeId: id,
     channelId: snippet.channelId,
     title: snippet.title,
-    description: snippet.description,
-    thumbnailUrl: snippet.thumbnails.medium.url,
+    description: snippet.description ?? '',
+    thumbnailUrl: thumb,
     publishedAt: new Date(snippet.publishedAt),
-    viewCount: parseInt(statistics.viewCount || '0'),
-    likeCount: parseInt(statistics.likeCount || '0'),
-    commentCount: parseInt(statistics.commentCount || '0'),
-    vph: calculateVPH(parseInt(statistics.viewCount || '0'), snippet.publishedAt),
+    viewCount: parseInt(statistics.viewCount || '0', 10),
+    likeCount: parseInt(statistics.likeCount || '0', 10),
+    commentCount: parseInt(statistics.commentCount || '0', 10),
+    vph: calculateVPH(parseInt(statistics.viewCount || '0', 10), snippet.publishedAt),
     durationIso: contentDetails?.duration ?? null,
   };
 };
@@ -33,16 +38,21 @@ const calculateVPH = (viewCount: number, publishedAt: string): number => {
 // Format a YouTube channel API response to our app's Channel type
 const formatChannel = (item: any): Channel => {
   const { id, snippet, statistics } = item;
-  
+  const thumb =
+    snippet?.thumbnails?.medium?.url ||
+    snippet?.thumbnails?.high?.url ||
+    snippet?.thumbnails?.default?.url ||
+    '';
+
   return {
     id: id,
     youtubeId: id,
     name: snippet.title,
-    description: snippet.description,
-    thumbnailUrl: snippet.thumbnails.medium.url,
-    subscriberCount: parseInt(statistics.subscriberCount) || 0,
-    videoCount: parseInt(statistics.videoCount) || 0,
-    viewCount: parseInt(statistics.viewCount) || 0
+    description: snippet.description ?? '',
+    thumbnailUrl: thumb,
+    subscriberCount: parseInt(statistics?.subscriberCount || '0', 10) || 0,
+    videoCount: parseInt(statistics?.videoCount || '0', 10) || 0,
+    viewCount: parseInt(statistics?.viewCount || '0', 10) || 0,
   };
 };
 
@@ -174,7 +184,10 @@ export const secureYoutubeService: IYouTubeService = {
       const response = await fetch(`/api/youtube/videos?channelId=${channelId}&maxResults=${maxResults}`);
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch channel videos: ${response.statusText}`);
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          body?.error || `Failed to fetch channel videos: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();

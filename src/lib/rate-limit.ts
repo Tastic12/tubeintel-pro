@@ -75,6 +75,11 @@ export async function checkRateLimit(
   userId: string,
   limiterId: LimiterId
 ): Promise<RateLimitResult> {
+  // Local dev should not inherit production Upstash counters from repeated hot reloads.
+  if (process.env.NODE_ENV === 'development') {
+    return { ok: true };
+  }
+
   const redis = getRedis();
   if (!redis) return { ok: true };
 

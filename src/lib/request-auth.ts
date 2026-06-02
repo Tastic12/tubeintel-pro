@@ -2,6 +2,7 @@ import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { checkRateLimit, type LimiterId, type RateLimitResult } from '@/lib/rate-limit';
+import type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
 export type RequestUser = {
   id: string;
@@ -58,11 +59,14 @@ export function rateLimitToResponse(result: Extract<RateLimitResult, { ok: false
   );
 }
 
-export async function enforceYouTubeRateLimit(limiterId: LimiterId) {
-  const key = await getRateLimitKey();
-  const result = await checkRateLimit(key, limiterId);
-  if (!result.ok) {
-    return { blocked: rateLimitToResponse(result), user: await getRequestUser() };
-  }
-  return { blocked: null as NextResponse | null, user: await getRequestUser() };
+export async function getYouTubeFetchContext(
+  limiterId: LimiterId
+): Promise<YouTubeFetchContext> {
+  const user = await getRequestUser();
+  const rateLimitKey = await getRateLimitKey();
+  return {
+    userId: user?.id,
+    rateLimitKey,
+    limiterId,
+  };
 }

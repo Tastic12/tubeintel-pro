@@ -16,15 +16,16 @@ Implemented via `video_outlier_cache` table, `/api/outliers/sync`, and enhanced 
 
 ## Priority 3 — Competitor UX refinements
 
-**Source:** competitor pages, `lib/hooks.ts` patterns
+**Already in V2 (no work needed):**
+- Bulk paste import — skipped (not needed for V2 design)
+- Category/folder groups — niche folders under Channels
+- Standalone competitor videos — Tracker → Videos
 
-- Bulk paste import (up to 50 channel URLs)
-- Category/folder groups for competitors
-- Comparison tables instead of bar charts only
-- Standalone competitor videos (not only full channels)
-- “Hide Shorts” user preference with cross-tab sync
+**Done (2026-06-02):**
+- **Hide Shorts** — toggle in profile menu, localStorage + cross-tab sync, **on by default**
 
-**Why:** Polished workflows without changing V2 theme.
+**Deferred:**
+- Comparison tables — revisit when we pick a placement in the UI
 
 ---
 

@@ -19,6 +19,8 @@ import {
 import { getChannelTrendData } from '@/services/metrics/history';
 import { calculateOutlierScore, getTopPerformingVideos } from '@/services/metrics/outliers';
 import { UpgradeButton } from '@/components/features';
+import { useShortsPreference } from '@/lib/preferences';
+import { filterVideosByShortsPreference } from '@/lib/video-short';
 
 // Register ChartJS components
 ChartJS.register(
@@ -52,7 +54,6 @@ const formatNumber = (num: number): string => {
 export default function DashboardPage() {
   const [channel, setChannel] = useState<Channel | null>(null);
   const [recentVideos, setRecentVideos] = useState<Video[]>([]);
-  const [topVideos, setTopVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -67,6 +68,10 @@ export default function DashboardPage() {
 
   // Use secure authentication context
   const { user } = useAuth();
+  const { hideShorts } = useShortsPreference();
+
+  const videosForDisplay = filterVideosByShortsPreference(recentVideos, hideShorts);
+  const topVideosForDisplay = getTopPerformingVideos(videosForDisplay, 4);
 
   useEffect(() => {
     // Get channel information
@@ -123,15 +128,6 @@ export default function DashboardPage() {
       }
       
       // Get top performing videos using the new comprehensive ranking algorithm
-      const topVids = getTopPerformingVideos(recentVideosData, 4);
-      console.log("Top videos with performance scores:", topVids.map(v => ({
-        title: v.title.substring(0, 20),
-        performanceScore: v.performanceScore,
-        vph: v.vph,
-        views: v.viewCount
-      })));
-      
-      setTopVideos(topVids);
       setRecentVideos(recentVideosData);
       setLastUpdated(new Date());
       setShowUpdateNotification(true);
@@ -160,7 +156,7 @@ export default function DashboardPage() {
   }, []);
 
   // Sort videos based on selected option
-  const sortedRecentVideos = [...recentVideos].sort((a, b) => {
+  const sortedRecentVideos = [...videosForDisplay].sort((a, b) => {
     if (sortOption === 'date') {
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     } else {
@@ -177,7 +173,7 @@ export default function DashboardPage() {
   };
 
   // Calculate channel statistics based on selected time frame
-  const filteredVideos = filterVideosByDateRange(recentVideos, selectedTimeFrame);
+  const filteredVideos = filterVideosByDateRange(videosForDisplay, selectedTimeFrame);
   const totalViews = filteredVideos.reduce((sum, video) => sum + video.viewCount, 0);
   const totalLikes = filteredVideos.reduce((sum, video) => sum + video.likeCount, 0);
   const averageVph = Math.round(filteredVideos.reduce((sum, video) => sum + video.vph, 0) / Math.max(1, filteredVideos.length));
@@ -226,7 +222,7 @@ export default function DashboardPage() {
 
   // Get videos from previous period
   const { start: prevStart, end: prevEnd } = getPreviousPeriodData(selectedTimeFrame);
-  const previousPeriodVideos = recentVideos.filter(video => {
+  const previousPeriodVideos = videosForDisplay.filter(video => {
     const videoDate = new Date(video.publishedAt);
     return videoDate >= prevStart && videoDate <= prevEnd;
   });
@@ -462,7 +458,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium opacity-70">Average VPH</p>
-                    <p className="text-3xl font-bold mt-1">{formatNumber(Math.round(recentVideos.reduce((sum, video) => sum + video.vph, 0) / Math.max(1, recentVideos.length)))}</p>
+                    <p className="text-3xl font-bold mt-1">{formatNumber(Math.round(videosForDisplay.reduce((sum, video) => sum + video.vph, 0) / Math.max(1, videosForDisplay.length)))}</p>
                     <div className="flex items-center mt-1">
                       {vphTrend.percentage > 0 ? (
                         <FaArrowUp className="text-green-400 mr-1" />
@@ -508,7 +504,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-white/90">Average VPH</h3>
               <div className="mt-1 flex items-baseline">
                 <p className="text-2xl font-semibold text-white">
-                  {formatNumber(Math.round(recentVideos.reduce((sum, video) => sum + video.vph, 0) / Math.max(1, recentVideos.length)))}
+                  {formatNumber(Math.round(videosForDisplay.reduce((sum, video) => sum + video.vph, 0) / Math.max(1, videosForDisplay.length)))}
                 </p>
                 <p className="ml-2 text-sm text-white/80">views per hour</p>
               </div>
@@ -517,12 +513,12 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-white/90">Highest VPH</h3>
               <div className="mt-1 flex items-baseline">
                 <p className="text-2xl font-semibold text-white">
-                  {recentVideos.length > 0 ? formatNumber(Math.max(...recentVideos.map(v => v.vph))) : 0}
+                  {videosForDisplay.length > 0 ? formatNumber(Math.max(...videosForDisplay.map(v => v.vph))) : 0}
                 </p>
                 <p className="ml-2 text-sm text-white/80">views per hour</p>
               </div>
               <p className="mt-1 text-xs text-white/90">
-                {recentVideos.length > 0 ? recentVideos.reduce((max, video) => max.vph > video.vph ? max : video, recentVideos[0]).title.substring(0, 30) + '...' : 'No videos found'}
+                {videosForDisplay.length > 0 ? videosForDisplay.reduce((max, video) => max.vph > video.vph ? max : video, videosForDisplay[0]).title.substring(0, 30) + '...' : 'No videos found'}
               </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-white/20">
@@ -559,10 +555,10 @@ export default function DashboardPage() {
                 </div>
               </span>
             </h2>
-            {topVideos.length > 0 ? (
+            {topVideosForDisplay.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {topVideos.slice(0, 4).map((video) => (
-                  <VideoGridCard key={video.id} video={video} showVph allVideos={recentVideos} />
+                {topVideosForDisplay.slice(0, 4).map((video) => (
+                  <VideoGridCard key={video.id} video={video} showVph allVideos={videosForDisplay} />
                 ))}
               </div>
             ) : (
@@ -617,13 +613,13 @@ export default function DashboardPage() {
               viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {sortedRecentVideos.slice(0, 20).map((video) => (
-                    <VideoGridCard key={video.id} video={video} showVph allVideos={recentVideos} />
+                    <VideoGridCard key={video.id} video={video} showVph allVideos={videosForDisplay} />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-3">
                   {sortedRecentVideos.slice(0, 20).map((video) => (
-                    <VideoListCard key={video.id} video={video} showVph allVideos={recentVideos} />
+                    <VideoListCard key={video.id} video={video} showVph allVideos={videosForDisplay} />
                   ))}
                 </div>
               )

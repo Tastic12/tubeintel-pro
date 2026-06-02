@@ -11,6 +11,8 @@ import { secureYoutubeService } from '@/services/api/youtube-secure';
 import SearchFilters from '@/components/SearchFilters';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useShortsPreference } from '@/lib/preferences';
+import { filterVideosByShortsPreference, isYouTubeShort } from '@/lib/video-short';
 
 // Format number to compact form
 const formatNumber = (num: number): string => {
@@ -33,6 +35,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const searchParams = useSearchParams();
   const listName = searchParams.get('name') || 'Competitor List';
   const { plan, isSubscribed, isLoading: subscriptionLoading } = useSubscription();
+  const { hideShorts } = useShortsPreference();
   
   // Basic states
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -549,14 +552,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   };
   
   // Helper function to detect if a video is a YouTube Short
-  const isShort = (video: Video): boolean => {
-    // YouTube Shorts are typically vertical videos less than 60 seconds
-    // This is an approximation based on metadata we have available
-    return video.title.toLowerCase().includes('#shorts') || 
-           video.description.toLowerCase().includes('#shorts') ||
-           video.title.toLowerCase().includes('#short') || 
-           video.description.toLowerCase().includes('#short');
-  };
+  const isShort = (video: Video): boolean => isYouTubeShort(video);
 
   // Updated handleApplyFilters function
   const handleApplyFilters = (filters: any) => {
@@ -929,7 +925,8 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
       
   // Removed the channel grouping functionality and renamed to getSortedVideos
   const getSortedVideos = () => {
-    return filteredVideos.sort((a, b) => {
+    const list = filterVideosByShortsPreference(filteredVideos, hideShorts);
+    return list.sort((a, b) => {
       switch (sortBy) {
         case 'date':
           return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();

@@ -1,0 +1,25 @@
+---
+description: Restart local Next.js dev server cleanly before testing changes
+alwaysApply: true
+---
+
+# Local dev server workflow
+
+Before starting or verifying localhost after code changes:
+
+1. **Stop existing servers** — kill processes on ports 3000–3002 (and any prior `npm run dev` in this project).
+2. **Clear stale cache** — delete `.next` when webpack/HMR errors appear or after many file changes.
+3. **Start one fresh server** — run `npm run dev` from the project root once.
+4. **Use the port shown in terminal output** — do not assume 3000 if another process was still bound.
+
+```powershell
+cd "C:\Cursor Projects\ClikStats V2"
+3000..3002 | ForEach-Object {
+  Get-NetTCPConnection -LocalPort $_ -ErrorAction SilentlyContinue |
+    ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+}
+Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue
+npm run dev
+```
+
+Never start a second dev server without stopping the first — overlapping instances cause port drift (3000 → 3001 → 3002) and corrupted `.next` bundles.

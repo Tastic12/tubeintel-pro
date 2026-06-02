@@ -1,101 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromYouTubeApi } from '../utils';
-import { headers } from 'next/headers';
+import { enforceYouTubeRateLimit } from '@/lib/request-auth';
 
-// Helper to get the base URL
-function getBaseUrl(req: NextRequest): string {
-  // For development environment
-  if (process.env.NODE_ENV === 'development') {
-    return `http://${req.headers.get('host')}`;
-  }
-  // For production, use the host from the headers
-  const host = headers().get('host') || req.headers.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') ? 'http' : 'https';
-  return `${protocol}://${host}`;
-}
-
-// GET /api/youtube/channels
 export async function GET(request: NextRequest) {
+  const { blocked, user } = await enforceYouTubeRateLimit('competitors-init');
+  if (blocked) return blocked;
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    
-    // Extract parameters
     const id = searchParams.get('id');
     const username = searchParams.get('username');
     const forUsername = searchParams.get('forUsername');
     const part = searchParams.get('part') || 'snippet,statistics';
-    
+
     if (id) {
-      // Get channel by ID
-      return fetchFromYouTubeApi('channels', {
-        part,
-        id
-      });
-    } else if (forUsername || username) {
-      // Get channel by username
+      return fetchFromYouTubeApi('channels', { part, id }, { userId: user?.id });
+    }
+
+    if (forUsername || username) {
       const rawUsername = forUsername || username || '';
-      const cleanUsername = rawUsername.startsWith('@') 
-        ? rawUsername.substring(1) 
+      const cleanUsername = rawUsername.startsWith('@')
+        ? rawUsername.substring(1)
         : rawUsername;
-      
-      // Try multiple search approaches
+
       const searchQueries = [
-        cleanUsername,                    // Direct name
-        `@${cleanUsername}`,             // With @ symbol
-        `${cleanUsername} channel`,       // With "channel" suffix
-        `${cleanUsername} youtube`        // With "youtube" suffix
+        cleanUsername,
+        `@${cleanUsername}`,
+        `${cleanUsername} channel`,
+        `${cleanUsername} youtube`,
       ];
-      
-      let channelId = null;
-      
-      // Try each search query until we find a match
+
       for (const query of searchQueries) {
         try {
-          const searchParams: Record<string, string> = {
-            q: query,
-            type: 'channel',
-            part: 'snippet',
-            maxResults: '5'
-          };
-          
-          const searchResponse = await fetchFromYouTubeApi('search', searchParams);
+          const searchResponse = await fetchFromYouTubeApi(
+            'search',
+            {
+              q: query,
+              type: 'channel',
+              part: 'snippet',
+              maxResults: '5',
+            },
+            { userId: user?.id }
+          );
           const searchData = await searchResponse.json();
-          
-          if (searchData.items && searchData.items.length > 0) {
-            // Get channel IDs from search results
+
+          if (searchData.items?.length > 0) {
             const channelIds = searchData.items
-              .map((item: any) => item.id.channelId)
+              .map((item: { id: { channelId: string } }) => item.id.channelId)
               .join(',');
-            
-            // Get full channel details
-            const channelResponse = await fetchFromYouTubeApi('channels', {
-              part,
-              id: channelIds
-            });
-            
+
+            const channelResponse = await fetchFromYouTubeApi(
+              'channels',
+              { part, id: channelIds },
+              { userId: user?.id }
+            );
             const channelData = await channelResponse.json();
-            
-            if (channelData.items && channelData.items.length > 0) {
-              // Return the first matching channel
+
+            if (channelData.items?.length > 0) {
               return NextResponse.json(channelData);
             }
           }
         } catch (error) {
           console.error(`Error with search query "${query}":`, error);
-          // Continue to next query if this one fails
-          continue;
         }
       }
-      
-      // No results found after trying all queries
+
       return NextResponse.json({ items: [] });
-    } else {
-      // Bad request - no identifier provided
-      return NextResponse.json(
-        { error: 'Missing channel identifier. Please provide id or username parameter.' },
-        { status: 400 }
-      );
     }
+
+    return NextResponse.json(
+      { error: 'Missing channel identifier. Please provide id or username parameter.' },
+      { status: 400 }
+    );
   } catch (error) {
     console.error('Error in channels route:', error);
     return NextResponse.json(
@@ -105,4 +81,4 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';

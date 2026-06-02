@@ -9,10 +9,12 @@ import {
   FaBars,
   FaLock,
   FaPlay,
-  FaBook
+  FaBook,
+  FaShieldAlt
 } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useMemo } from 'react';
 import { UpgradeButton } from '@/components/features';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getTourCompletionStatus, resetTourCompletion } from '@/lib/tour-utils';
@@ -98,7 +100,18 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX.Element {
   const pathname = usePathname();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const { plan, isLoading } = useSubscription();
+
+  const isAdmin = useMemo(() => {
+    if (!user?.email) return false;
+    const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+    const allowed = raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    return allowed.includes(user.email.toLowerCase());
+  }, [user?.email]);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [tourCompleted, setTourCompleted] = useState<boolean>(false);
   const [tourStatusLoading, setTourStatusLoading] = useState<boolean>(true);
@@ -243,6 +256,16 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           isActive={isActive('/dashboard/guide')} 
           collapsed={collapsed}
         />
+
+        {isAdmin && (
+          <SidebarItem
+            icon={<FaShieldAlt size={18} />}
+            label="Admin"
+            href="/dashboard/admin"
+            isActive={isActive('/dashboard/admin')}
+            collapsed={collapsed}
+          />
+        )}
       </div>
       
       {/* Subscription link */}

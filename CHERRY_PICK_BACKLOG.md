@@ -31,13 +31,12 @@ Implemented via `video_outlier_cache` table, `/api/outliers/sync`, and enhanced 
 
 ## Priority 4 — SWR data layer refactor
 
-**Source:** `lib/hooks.ts`
+**Status:** Done (2026-06-02). Backend-only; UI unchanged.
 
-- Consistent SWR caching for channels, videos, metrics, competitors
-- `postAuthedApi` / error parsing helpers
-- Gradually replace V2’s mixed mock/real `services/api/index.ts` layer
-
-**Why:** Cleaner loading states, less duplicate fetch logic.
+- ✅ `swr` + `src/lib/api-client.ts` (`parseJsonResponse`, `postAuthedApi`, `patchAuthedApi`)
+- ✅ `src/lib/hooks.ts` — channel, videos, competitor lists, collections hooks
+- ✅ `SWRConfig` in `Providers.tsx`
+- ✅ Dashboard, competitors (list + detail), videos (list + detail), settings
 
 ---
 

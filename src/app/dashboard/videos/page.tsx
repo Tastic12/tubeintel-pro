@@ -1,27 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaPlus, FaEllipsisV, FaPlay, FaGamepad, FaLaptop, FaMusic, FaFilm, FaRegStar, FaChartLine, FaCrown, FaLock, FaThumbtack, FaPencilAlt, FaCopy, FaTrash } from 'react-icons/fa';
 import Link from 'next/link';
-import { Video } from '@/types';
 import { useSubscription } from '@/hooks/useSubscription';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
+import {
+  useVideoCollectionsPage,
+  type VideoCollectionWithItems,
+} from '@/lib/hooks';
 
-// Interface for video collections
-interface VideoCollection {
-  id: string;
-  name: string;
-  isPinned: boolean;
-  videos: Video[];
-}
+type VideoCollection = VideoCollectionWithItems;
 
 export default function VideosPage() {
   const router = useRouter();
   const { plan, isSubscribed, isLoading: subscriptionLoading } = useSubscription();
-  
-  const [videoCollections, setVideoCollections] = useState<VideoCollection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { videoCollections, isLoading, mutate: mutateVideoCollections } =
+    useVideoCollectionsPage();
   const [upgradeReason, setUpgradeReason] = useState<string>('');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,167 +32,22 @@ export default function VideosPage() {
   const FREE_TIER_COLLECTIONS = 1;
   const FREE_TIER_VIDEOS_PER_COLLECTION = 10;
 
-  // Function to refresh video collections from Supabase
-  const refreshData = async () => {
-    try {
-      setIsLoading(true);
-      
-      console.log("Refreshing video collections from Supabase...");
-      
-      // Get collections from Supabase
-      const collections = await videoCollectionsApi.getUserCollections();
-      console.log("Retrieved collections for refresh:", collections);
-      
-      if (collections.length === 0) {
-        console.log("No collections found during refresh");
-        setVideoCollections([]);
-        return;
-      }
-      
-      // Fetch videos for each collection
-      console.log("Fetching current videos for each collection during refresh");
-      const collectionsWithVideos = await Promise.all(
-        collections.map(async (collection) => {
-          console.log(`Refreshing videos for collection ${collection.id} (${collection.name})...`);
-          const videos = await videoCollectionsApi.getVideosInCollection(collection.id);
-          console.log(`Found ${videos.length} videos in collection ${collection.id} during refresh`);
-          
-          // Convert from DB format to our app format
-          const formattedVideos = videos.map(v => ({
-            id: v.id,
-            youtubeId: v.youtubeId,
-            channelId: v.channelId || '',
-            title: v.title,
-            description: '', // Default empty description
-            thumbnailUrl: v.thumbnailUrl || '',
-            publishedAt: v.publishedAt ? new Date(v.publishedAt) : new Date(),
-            viewCount: v.viewCount || 0,
-            likeCount: v.likeCount || 0,
-            commentCount: 0, // Default comment count
-            vph: 0 // Default VPH (Views Per Hour)
-          }));
-          
-          // Get isPinned status from localStorage if available (for UI state only)
-          const savedCollections = localStorage.getItem('videoCollections');
-          let isPinned = false;
-          
-          if (savedCollections) {
-            const parsedCollections = JSON.parse(savedCollections) as VideoCollection[];
-            const savedCollection = parsedCollections.find(c => c.id === collection.id);
-            if (savedCollection) {
-              isPinned = savedCollection.isPinned;
-            }
-          }
-          
-          return {
-            id: collection.id,
-            name: collection.name,
-            isPinned: isPinned,
-            videos: formattedVideos
-          };
-        })
-      );
-      
-      console.log("Setting updated video collections:", collectionsWithVideos);
-      setVideoCollections(collectionsWithVideos);
-      
-      // Update localStorage for pinned status only
-      const currentSavedCollections = localStorage.getItem('videoCollections');
-      if (currentSavedCollections) {
-        const parsedSavedCollections = JSON.parse(currentSavedCollections) as VideoCollection[];
-        
-        // Merge the pinned status from existing saved collections with the new data
-        const mergedCollections = collectionsWithVideos.map(newCollection => {
-          const savedCollection = parsedSavedCollections.find(c => c.id === newCollection.id);
-          return {
-            ...newCollection,
-            isPinned: savedCollection ? savedCollection.isPinned : newCollection.isPinned
-          };
-        });
-        
-        localStorage.setItem('videoCollections', JSON.stringify(mergedCollections));
-      } else {
-        localStorage.setItem('videoCollections', JSON.stringify(collectionsWithVideos));
-      }
-    } catch (error) {
-      console.error('Error refreshing video collections:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const updateVideoCollections = (
+    updater: (prev: VideoCollection[]) => VideoCollection[]
+  ) => {
+    void mutateVideoCollections(
+      (current) => {
+        const next = updater(current ?? []);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('videoCollections', JSON.stringify(next));
+        }
+        return next;
+      },
+      { revalidate: false }
+    );
   };
 
-  // Load video data
-  useEffect(() => {
-    const fetchVideoCollections = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Get collections from Supabase
-        console.log("Fetching video collections from Supabase...");
-        const collections = await videoCollectionsApi.getUserCollections();
-        console.log("Retrieved collections:", collections);
-        
-        if (collections.length === 0) {
-          console.log("No collections found");
-          setVideoCollections([]);
-        } else {
-          // Fetch videos for each collection
-          console.log("Collections found, fetching videos for each collection");
-          const collectionsWithVideos = await Promise.all(
-            collections.map(async (collection) => {
-              console.log(`Fetching videos for collection ${collection.id} (${collection.name})...`);
-              const videos = await videoCollectionsApi.getVideosInCollection(collection.id);
-              console.log(`Found ${videos.length} videos in collection ${collection.id}`);
-              
-              // Convert from DB format to our app format
-              const formattedVideos = videos.map(v => ({
-                id: v.id,
-                youtubeId: v.youtubeId,
-                channelId: v.channelId || '',
-                title: v.title,
-                description: '', // Default empty description
-                thumbnailUrl: v.thumbnailUrl || '',
-                publishedAt: v.publishedAt ? new Date(v.publishedAt) : new Date(),
-                viewCount: v.viewCount || 0,
-                likeCount: v.likeCount || 0,
-                commentCount: 0, // Default comment count
-                vph: 0 // Default VPH (Views Per Hour)
-              }));
-              
-              // Get isPinned status from localStorage if available
-              const savedCollections = localStorage.getItem('videoCollections');
-              let isPinned = false;
-              
-              if (savedCollections) {
-                const parsedCollections = JSON.parse(savedCollections) as VideoCollection[];
-                const savedCollection = parsedCollections.find(c => c.id === collection.id);
-                if (savedCollection) {
-                  isPinned = savedCollection.isPinned;
-                }
-              }
-              
-              console.log(`Built collection object for ${collection.name} with ${formattedVideos.length} videos`);
-              return {
-                id: collection.id,
-                name: collection.name,
-                isPinned: isPinned,
-                videos: formattedVideos
-              };
-            })
-          );
-          
-          console.log("Setting video collections with data:", collectionsWithVideos);
-          setVideoCollections(collectionsWithVideos);
-        }
-      } catch (error) {
-        console.error('Error fetching video collections:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchVideoCollections();
-  }, []);
+  const refreshData = () => mutateVideoCollections();
 
   // Check if user can create a new collection
   const canCreateCollection = () => {
@@ -302,17 +153,11 @@ export default function VideosPage() {
     
     try {
       // Update isPinned in local state (not stored in Supabase)
-      const updatedCollections = videoCollections.map(c => 
-        c.id === id 
-          ? { ...c, isPinned: newPinnedStatus } 
-          : c
+      updateVideoCollections((collections) =>
+        collections.map((c) =>
+          c.id === id ? { ...c, isPinned: newPinnedStatus } : c
+        )
       );
-      
-      // Update state
-      setVideoCollections(updatedCollections);
-      
-      // Save pinned status to localStorage
-      localStorage.setItem('videoCollections', JSON.stringify(updatedCollections));
     } catch (error) {
       console.error('Error pinning collection:', error);
     }

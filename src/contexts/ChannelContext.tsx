@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import { Channel } from '@/types';
-import { channelsApi } from '@/services/api';
+import { useMyChannel } from '@/lib/hooks';
 
 interface ChannelContextType {
   channel: Channel | null;
@@ -19,37 +19,21 @@ interface ChannelProviderProps {
 }
 
 export function ChannelProvider({ children }: ChannelProviderProps) {
-  const [channel, setChannel] = useState<Channel | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchChannel = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const channelData = await channelsApi.getMyChannel();
-      setChannel(channelData);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch channel';
-      setError(errorMessage);
-      setChannel(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { channel, isLoading, isError, mutate } = useMyChannel();
 
   const refreshChannel = async () => {
-    await fetchChannel();
+    await mutate();
   };
 
-  useEffect(() => {
-    fetchChannel();
-  }, []);
+  const setChannel = (_channel: Channel | null) => {
+    // Optimistic local updates can be wired via mutate(data, false) when needed.
+    void mutate();
+  };
 
   const value: ChannelContextType = {
     channel,
     isLoading,
-    error,
+    error: isError instanceof Error ? isError.message : isError ? 'Failed to fetch channel' : null,
     refreshChannel,
     setChannel,
   };
@@ -67,4 +51,4 @@ export function useChannel() {
     throw new Error('useChannel must be used within a ChannelProvider');
   }
   return context;
-} 
+}

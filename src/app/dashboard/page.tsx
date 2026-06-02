@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Video, Channel } from '@/types';
-import { videosApi, channelsApi } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
+import { Video } from '@/types';
 import { FaTable, FaThLarge, FaChartLine, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
 import {
@@ -21,6 +19,7 @@ import { calculateOutlierScore, getTopPerformingVideos } from '@/services/metric
 import { UpgradeButton } from '@/components/features';
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference } from '@/lib/video-short';
+import { useMyChannel, useRecentVideos } from '@/lib/hooks';
 
 // Register ChartJS components
 ChartJS.register(
@@ -52,39 +51,31 @@ const formatNumber = (num: number): string => {
 };
 
 export default function DashboardPage() {
-  const [channel, setChannel] = useState<Channel | null>(null);
-  const [recentVideos, setRecentVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [selectedTimeFrame, setSelectedTimeFrame] = useState<TimeFrame>('7d');
 
-  // Calculate trends with historical data if available
-  const [viewsTrend, setViewsTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
-  const [likesTrend, setLikesTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
-  const [vphTrend, setVphTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
+  const handleVideosUpdated = useCallback(() => {
+    setLastUpdated(new Date());
+    setShowUpdateNotification(true);
+    setTimeout(() => setShowUpdateNotification(false), 5000);
+  }, []);
 
-  // Use secure authentication context
-  const { user } = useAuth();
+  const { channel } = useMyChannel();
+  const { videos: recentVideos, isLoading } = useRecentVideos(100, {
+    onUpdated: handleVideosUpdated,
+  });
   const { hideShorts } = useShortsPreference();
 
   const videosForDisplay = filterVideosByShortsPreference(recentVideos, hideShorts);
   const topVideosForDisplay = getTopPerformingVideos(videosForDisplay, 4);
 
-  useEffect(() => {
-    // Get channel information
-    const fetchChannel = async () => {
-      try {
-        const channelData = await channelsApi.getMyChannel();
-        setChannel(channelData);
-      } catch (error) {
-        console.error('Error fetching channel:', error);
-      }
-    };
-    fetchChannel();
-  }, []);
+  // Calculate trends with historical data if available
+  const [viewsTrend, setViewsTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
+  const [likesTrend, setLikesTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
+  const [vphTrend, setVphTrend] = useState<TrendData>({ current: 0, previous: 0, percentage: 0 });
 
   // Function to get date range based on selected time frame
   const getDateRange = (timeFrame: TimeFrame) => {
@@ -108,52 +99,6 @@ export default function DashboardPage() {
     const { start } = getDateRange(timeFrame);
     return videos.filter(video => new Date(video.publishedAt) >= start);
   };
-
-  // Function to fetch data
-  const fetchData = async () => {
-    try {
-      const recentVideosData = await videosApi.getRecentVideos(100); // Increased to get more historical data for 30d trends
-      
-      console.log("Fetched videos count:", recentVideosData.length);
-      // Log date ranges of videos to help with debugging
-      if (recentVideosData.length > 0) {
-        const dates = recentVideosData.map(v => new Date(v.publishedAt).getTime());
-        const oldest = new Date(Math.min(...dates));
-        const newest = new Date(Math.max(...dates));
-        console.log("Video date range:", {
-          oldest: oldest.toISOString().split('T')[0],
-          newest: newest.toISOString().split('T')[0],
-          daysSpan: Math.round((newest.getTime() - oldest.getTime()) / (1000 * 60 * 60 * 24))
-        });
-      }
-      
-      // Get top performing videos using the new comprehensive ranking algorithm
-      setRecentVideos(recentVideosData);
-      setLastUpdated(new Date());
-      setShowUpdateNotification(true);
-      
-      setTimeout(() => {
-        setShowUpdateNotification(false);
-      }, 5000);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Set up background updates every 4 hours
-  useEffect(() => {
-    const fourHours = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
-    const intervalId = setInterval(fetchData, fourHours);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   // Sort videos based on selected option
   const sortedRecentVideos = [...videosForDisplay].sort((a, b) => {

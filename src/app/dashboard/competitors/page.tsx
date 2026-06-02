@@ -1,27 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { competitorsApi, competitorListsApi } from '@/services/api';
-import { Competitor } from '@/types';
+import { competitorListsApi } from '@/services/api/competitorLists';
 import { FaPlus, FaTimes, FaEllipsisV, FaThumbtack, FaPencilAlt, FaCopy, FaTrash, FaYoutube, FaChartLine, FaUsers, FaGlobe, FaGamepad, FaLaptop, FaFilm, FaMusic, FaRegStar, FaCrown, FaLock } from 'react-icons/fa';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useCompetitorListsPage, type CompetitorListWithItems } from '@/lib/hooks';
 
-// Interface for competitor lists
-interface CompetitorList {
-  id: string;
-  name: string;
-  isPinned: boolean;
-  competitors: Competitor[];
-}
+// Interface for competitor lists (UI shape)
+type CompetitorList = CompetitorListWithItems;
 
 export default function CompetitorsPage() {
   const router = useRouter();
   const { plan, isSubscribed, isLoading: subscriptionLoading } = useSubscription();
-  const [competitorLists, setCompetitorLists] = useState<CompetitorList[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { competitorLists, isLoading, mutate: mutateCompetitorLists } = useCompetitorListsPage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [listName, setListName] = useState('');
   const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -62,161 +56,22 @@ export default function CompetitorsPage() {
     }
   }, []);
 
-  // Function to refresh competitor lists from Supabase
-  const refreshData = async () => {
-    try {
-      setIsLoading(true);
-      
-      console.log("Refreshing competitor lists from Supabase...");
-      
-      // Get lists from Supabase
-      const lists = await competitorListsApi.getUserLists();
-      console.log("Retrieved lists for refresh:", lists);
-      
-      if (lists.length === 0) {
-        console.log("No lists found during refresh");
-        setCompetitorLists([]);
-        return;
-      }
-      
-      // We need to fetch competitors for each list
-      console.log("Fetching current competitors for each list during refresh");
-      const listsWithCompetitors = await Promise.all(
-        lists.map(async (list) => {
-          console.log(`Refreshing competitors for list ${list.id} (${list.name})...`);
-          // Get competitors for this list from Supabase - this ensures we get what's actually in the database
-          const competitors = await competitorListsApi.getCompetitorsInList(list.id);
-          console.log(`Found ${competitors.length} competitors in list ${list.id} during refresh`);
-          
-          // Convert from DB format to our app format
-          const formattedCompetitors = competitors.map(c => ({
-            id: c.id,
-            youtubeId: c.youtubeId,
-            name: c.name,
-            thumbnailUrl: c.thumbnailUrl || '',
-            subscriberCount: c.subscriberCount || 0,
-            videoCount: c.videoCount || 0,
-            viewCount: c.viewCount || 0
-          }));
-          
-          // Get isPinned status from localStorage if available
-          const savedLists = localStorage.getItem('competitorLists');
-          let isPinned = false;
-          
-          if (savedLists) {
-            const parsedLists = JSON.parse(savedLists) as CompetitorList[];
-            const savedList = parsedLists.find(l => l.id === list.id);
-            if (savedList) {
-              isPinned = savedList.isPinned;
-            }
-          }
-          
-          return {
-            id: list.id,
-            name: list.name,
-            isPinned: isPinned,
-            competitors: formattedCompetitors // These come directly from Supabase (empty for new lists)
-          };
-        })
-      );
-      
-      console.log("Setting updated competitor lists:", listsWithCompetitors);
-      setCompetitorLists(listsWithCompetitors);
-      
-      // Also update localStorage for pinned status
-      const currentSavedLists = localStorage.getItem('competitorLists');
-      if (currentSavedLists) {
-        const parsedSavedLists = JSON.parse(currentSavedLists) as CompetitorList[];
-        
-        // Merge the pinned status from existing saved lists with the new data
-        const mergedLists = listsWithCompetitors.map(newList => {
-          const savedList = parsedSavedLists.find(l => l.id === newList.id);
-          return {
-            ...newList,
-            isPinned: savedList ? savedList.isPinned : newList.isPinned
-          };
-        });
-        
-        localStorage.setItem('competitorLists', JSON.stringify(mergedLists));
-      } else {
-        localStorage.setItem('competitorLists', JSON.stringify(listsWithCompetitors));
-      }
-    } catch (error) {
-      console.error('Error refreshing competitor lists:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const updateCompetitorLists = (
+    updater: (prev: CompetitorList[]) => CompetitorList[]
+  ) => {
+    void mutateCompetitorLists(
+      (current) => {
+        const next = updater(current ?? []);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('competitorLists', JSON.stringify(next));
+        }
+        return next;
+      },
+      { revalidate: false }
+    );
   };
 
-  // Load competitor data
-  useEffect(() => {
-    const fetchCompetitors = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Get lists from Supabase
-        console.log("Fetching competitor lists from Supabase...");
-        const lists = await competitorListsApi.getUserLists();
-        console.log("Retrieved lists:", lists);
-        
-        if (lists.length === 0) {
-          // No lists - just set an empty array
-          console.log("No lists found");
-          setCompetitorLists([]);
-        } else {
-          // We need to fetch competitors for each list
-          console.log("Lists found, fetching competitors for each list");
-          const listsWithCompetitors = await Promise.all(
-            lists.map(async (list) => {
-              console.log(`Fetching competitors for list ${list.id} (${list.name})...`);
-              const competitors = await competitorListsApi.getCompetitorsInList(list.id);
-              console.log(`Found ${competitors.length} competitors in list ${list.id}`);
-              
-              // Convert from DB format to our app format
-              const formattedCompetitors = competitors.map(c => ({
-                id: c.id,
-                youtubeId: c.youtubeId,
-                name: c.name,
-                thumbnailUrl: c.thumbnailUrl || '',
-                subscriberCount: c.subscriberCount || 0,
-                videoCount: c.videoCount || 0,
-                viewCount: c.viewCount || 0
-              }));
-              
-              // Get isPinned status from localStorage if available
-              const savedLists = localStorage.getItem('competitorLists');
-              let isPinned = false;
-              
-              if (savedLists) {
-                const parsedLists = JSON.parse(savedLists) as CompetitorList[];
-                const savedList = parsedLists.find(l => l.id === list.id);
-                if (savedList) {
-                  isPinned = savedList.isPinned;
-                }
-              }
-              
-              console.log(`Built list object for ${list.name} with ${formattedCompetitors.length} competitors`);
-              return {
-                id: list.id,
-                name: list.name,
-                isPinned: isPinned,
-                competitors: formattedCompetitors
-              };
-            })
-          );
-          
-          console.log("Setting competitor lists with data:", listsWithCompetitors);
-          setCompetitorLists(listsWithCompetitors);
-        }
-      } catch (error) {
-        console.error('Error fetching competitors:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCompetitors();
-  }, []);
+  const refreshData = () => mutateCompetitorLists();
 
   const openModal = (listId?: string) => {
     // Check if creating a new folder and user is on free tier
@@ -316,13 +171,7 @@ export default function CompetitorsPage() {
             console.log("Adding new empty list to UI:", newList);
             
             // Update state immediately with the new list
-            setCompetitorLists(prev => [...prev, newList]);
-            
-            // Save to localStorage for pinned status
-            const savedLists = localStorage.getItem('competitorLists');
-            const lists = savedLists ? JSON.parse(savedLists) : [];
-            lists.push(newList);
-            localStorage.setItem('competitorLists', JSON.stringify(lists));
+            updateCompetitorLists((prev) => [...prev, newList]);
             
             closeModal();
           } catch (innerError) {
@@ -363,17 +212,11 @@ export default function CompetitorsPage() {
     
     try {
       // We only update isPinned in local state since Supabase schema doesn't have isPinned field
-      const updatedLists = competitorLists.map(list => 
-        list.id === id 
-          ? { ...list, isPinned: newPinnedStatus } 
-          : list
+      updateCompetitorLists((lists) =>
+        lists.map((list) =>
+          list.id === id ? { ...list, isPinned: newPinnedStatus } : list
+        )
       );
-      
-      // Update state
-      setCompetitorLists(updatedLists);
-      
-      // Save pinned status to localStorage
-      localStorage.setItem('competitorLists', JSON.stringify(updatedLists));
     } catch (error) {
       console.error('Error pinning list:', error);
     }
@@ -404,11 +247,7 @@ export default function CompetitorsPage() {
       // For now, we'll just create an empty duplicate list
       
       // Update state to include the new list
-      const updatedLists = [...competitorLists, duplicatedList];
-      setCompetitorLists(updatedLists);
-      
-      // Save pinned status to localStorage
-      localStorage.setItem('competitorLists', JSON.stringify(updatedLists));
+      updateCompetitorLists((lists) => [...lists, duplicatedList]);
       
       // Refresh data from Supabase
       await refreshData();

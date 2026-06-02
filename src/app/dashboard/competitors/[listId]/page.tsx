@@ -5,7 +5,6 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { FaArrowLeft, FaPlus, FaTimes, FaYoutube, FaEllipsisV, FaChartBar, FaDownload, FaFilter, FaChevronDown, FaStar, FaRocket, FaTrophy, FaCheck, FaCalendarAlt, FaEye, FaEyeSlash, FaThLarge, FaSearch, FaExternalLinkAlt, FaPlay, FaBookmark, FaClipboard, FaChartLine, FaListUl, FaTh, FaInfoCircle, FaRegClock, FaLink, FaCrown, FaLock } from 'react-icons/fa';
 import Link from 'next/link';
 import { Competitor, Video } from '@/types';
-import { videosApi } from '@/services/api';
 import { competitorListsApi } from '@/services/api/competitorLists';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
 import SearchFilters from '@/components/SearchFilters';
@@ -13,6 +12,11 @@ import { calculateOutlierScore, calculatePerformanceScore } from '@/services/met
 import { useSubscription } from '@/hooks/useSubscription';
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference, isYouTubeShort } from '@/lib/video-short';
+import {
+  useCompetitorsInList,
+  useCompetitorListVideos,
+  invalidateCompetitorListsData,
+} from '@/lib/hooks';
 
 // Format number to compact form
 const formatNumber = (num: number): string => {
@@ -36,10 +40,21 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const listName = searchParams.get('name') || 'Competitor List';
   const { plan, isSubscribed, isLoading: subscriptionLoading } = useSubscription();
   const { hideShorts } = useShortsPreference();
-  
+  const {
+    competitors,
+    isLoading: competitorsLoading,
+    isError: competitorsError,
+    mutate: mutateCompetitors,
+  } = useCompetitorsInList(params.listId);
+  const {
+    videos: competitorVideos,
+    isLoading: videosLoading,
+    isValidating: isVideoLoading,
+    mutate: mutateVideos,
+  } = useCompetitorListVideos(params.listId, competitors);
+  const isLoading = competitorsLoading || videosLoading;
+
   // Basic states
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCompetitorId, setNewCompetitorId] = useState('');
   const [channelSearchQuery, setChannelSearchQuery] = useState('');
@@ -83,7 +98,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const [activeFilters, setActiveFilters] = useState<any>(null);
   
   // Video states
-  const [competitorVideos, setCompetitorVideos] = useState<Video[]>([]);
   const [similarVideos, setSimilarVideos] = useState<Video[]>([]);
   const [videoGridColumns, setVideoGridColumns] = useState<number>(4);
   const [showVideoInfo, setShowVideoInfo] = useState<boolean>(true);
@@ -114,7 +128,19 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const [totalChannelViewsThreshold, setTotalChannelViewsThreshold] = useState<number>(1000000);
   const [includeKeywords, setIncludeKeywords] = useState<string>("");
   const [excludeKeywords, setExcludeKeywords] = useState<string>("");
-  const [isVideoLoading, setIsVideoLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    setFilteredCompetitorVideos(competitorVideos);
+  }, [competitorVideos]);
+
+  useEffect(() => {
+    if (
+      competitorsError instanceof Error &&
+      competitorsError.message.includes('not found')
+    ) {
+      router.push('/dashboard/competitors');
+    }
+  }, [competitorsError, router]);
 
   // Helper function to render engagement rate with deterministic values
   const renderEngagementRate = (channelId: string) => {
@@ -162,12 +188,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
     );
   };
 
-  // Call the check on mount
-  useEffect(() => {
-    fetchCompetitors();
-  }, []);
-  
-  // Add a useEffect to handle clicks outside the context menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
@@ -180,117 +200,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  const fetchCompetitors = async () => {
-    try {
-      setIsLoading(true);
-      
-      console.log(`Fetching competitors for list ${params.listId}...`);
-      
-      // Get the competitor list from Supabase
-      try {
-        const competitors = await competitorListsApi.getCompetitorsInList(params.listId);
-        console.log(`Found ${competitors.length} competitors in list ${params.listId}`);
-        
-        // Convert from DB format to our app format
-        const formattedCompetitors: Competitor[] = [];
-        
-        // For each competitor, get fresh data from YouTube
-        for (const c of competitors) {
-          try {
-            // Try to get fresh data from YouTube
-            console.log(`Fetching updated data for channel ${c.name} (${c.youtubeId})...`);
-            const channelData = await secureYoutubeService.getChannelById(c.youtubeId);
-            
-            // Use the fresh data but keep our database ID
-            formattedCompetitors.push({
-              id: c.id,
-              youtubeId: c.youtubeId,
-              name: channelData.name,
-              thumbnailUrl: channelData.thumbnailUrl,
-              subscriberCount: channelData.subscriberCount,
-              videoCount: channelData.videoCount,
-              viewCount: channelData.viewCount
-            });
-            
-            console.log(`Updated data received for ${channelData.name}`);
-          } catch (error) {
-            console.error(`Error fetching data for channel ${c.youtubeId}:`, error);
-            
-            // Fall back to database data if YouTube API fails
-            formattedCompetitors.push({
-              id: c.id,
-              youtubeId: c.youtubeId,
-              name: c.name,
-              thumbnailUrl: c.thumbnailUrl || '',
-              subscriberCount: c.subscriberCount || 0,
-              videoCount: c.videoCount || 0,
-              viewCount: c.viewCount || 0
-            });
-          }
-        }
-        
-        setCompetitors(formattedCompetitors);
-        
-        // After getting competitors, fetch their videos
-        if (formattedCompetitors.length > 0) {
-          fetchCompetitorVideos(formattedCompetitors);
-        } else {
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error fetching competitors for list:', error);
-        if (error instanceof Error && error.message.includes('not found')) {
-          // List not found, redirect to the main competitors page
-          router.push('/dashboard/competitors');
-        }
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Error in fetchCompetitors:', error);
-      setIsLoading(false);
-    }
-  };
-  
-  const fetchCompetitorVideos = async (competitorsList: Competitor[]) => {
-    try {
-      setIsVideoLoading(true);
-      const allVideos: Video[] = [];
-      
-      // Process all competitors
-      const competitorsToFetch = competitorsList;
-      
-      // Fetch videos for each competitor (10 videos per competitor)
-      for (const competitor of competitorsToFetch) {
-        try {
-          console.log(`Fetching videos for channel ${competitor.name} (${competitor.youtubeId})...`);
-          const videos = await secureYoutubeService.getVideosByChannelId(competitor.youtubeId, 10);
-          allVideos.push(...videos);
-          console.log(`Found ${videos.length} videos for channel ${competitor.name}`);
-        } catch (error) {
-          console.error(`Error fetching videos for channel ${competitor.youtubeId}:`, error);
-        }
-      }
-      
-      // Sort videos by published date (newest first)
-      const sortedVideos = allVideos.sort((a, b) => 
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
-      
-      setCompetitorVideos(sortedVideos);
-      setFilteredCompetitorVideos(sortedVideos); // Also set filtered videos initially
-      setIsVideoLoading(false);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error fetching competitor videos:', error);
-      setIsVideoLoading(false);
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCompetitors();
-  }, [params.listId]);
 
   const handleAddCompetitor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,60 +252,15 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
       try {
         // Add to competitor list in Supabase
         console.log('Adding competitor to list:', params.listId);
-        const competitor = await competitorListsApi.addCompetitorToList(
+        await competitorListsApi.addCompetitorToList(
           params.listId,
           competitorData
         );
-        
-        console.log('Competitor added successfully:', competitor);
-        
-        // Convert from the TrackedCompetitor type to Competitor type for UI
-        const newCompetitor: Competitor = {
-          id: competitor.id,
-          youtubeId: competitor.youtubeId,
-          name: competitor.name,
-          thumbnailUrl: competitor.thumbnailUrl || '',
-          subscriberCount: competitor.subscriberCount || 0,
-          videoCount: competitor.videoCount || 0,
-          viewCount: competitor.viewCount || 0
-        };
-        
-        setCompetitors(prev => [...prev, newCompetitor]);
-        
-        // Fetch videos for the new competitor
-        try {
-          // Set video loading indicator to true
-          setIsVideoLoading(true);
-          
-          console.log('Fetching videos for new competitor:', newCompetitor.youtubeId);
-          const videos = await secureYoutubeService.getVideosByChannelId(newCompetitor.youtubeId, 10);
-          console.log('Videos fetched successfully:', videos.length);
-          
-          // Sort the videos by published date (newest first)
-          const sortedVideos = videos.sort((a, b) => 
-            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-          );
-          
-          // Update both competitorVideos and filteredCompetitorVideos
-          setCompetitorVideos(prev => [...sortedVideos, ...prev]);
-          setFilteredCompetitorVideos(prev => [...sortedVideos, ...prev]);
-          
-          // If there's an active search, filter the videos again
-          if (videoSearchQuery.trim()) {
-            const query = videoSearchQuery.toLowerCase();
-            const newFiltered = [...sortedVideos, ...competitorVideos].filter(video =>
-              video.title.toLowerCase().includes(query) ||
-              video.description.toLowerCase().includes(query)
-            );
-            setFilteredCompetitorVideos(newFiltered);
-          }
-        } catch (videoError) {
-          console.error('Error fetching videos for new competitor:', videoError);
-          // Continue even if we can't fetch videos - we've already added the competitor
-        } finally {
-          setIsVideoLoading(false);
-        }
-        
+
+        await mutateCompetitors();
+        await mutateVideos();
+        void invalidateCompetitorListsData();
+
         setNewCompetitorId('');
         setIsModalOpen(false);
       } catch (apiError) {
@@ -421,27 +285,10 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
 
   const handleRemoveCompetitor = async (id: string) => {
     try {
-      // Find the competitor being removed to get its youtubeId
-      const competitorToRemove = competitors.find(comp => comp.id === id);
-      
-      // Remove the competitor using the direct API instead of the adapter
       await competitorListsApi.removeCompetitorFromList(id);
-      
-      // Update the competitors list in UI
-      setCompetitors(prev => prev.filter(competitor => competitor.id !== id));
-      
-      // If we found the competitor, also remove its videos from both video lists
-      if (competitorToRemove) {
-        // Filter out any videos that belong to this competitor's channel
-        setCompetitorVideos(prev => 
-          prev.filter(video => video.channelId !== competitorToRemove.youtubeId)
-        );
-        
-        // Also update the filtered videos to maintain consistency
-        setFilteredCompetitorVideos(prev => 
-          prev.filter(video => video.channelId !== competitorToRemove.youtubeId)
-        );
-      }
+      await mutateCompetitors();
+      await mutateVideos();
+      void invalidateCompetitorListsData();
     } catch (error) {
       console.error('Error removing competitor:', error);
     }

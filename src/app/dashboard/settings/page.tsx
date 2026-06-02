@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { channelsApi } from '@/services/api';
-import { Channel, Profile } from '@/types';
+import { Profile } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/supabase';
+import { useMyChannel, invalidateDashboardData } from '@/lib/hooks';
 
 // Define the search result type
 interface ChannelSearchResult {
@@ -20,10 +20,13 @@ export default function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ChannelSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
-  const [connectedChannel, setConnectedChannel] = useState<Channel | null>(null);
+  const [profileChannelReady, setProfileChannelReady] = useState(false);
   const [cooldownEndTime, setCooldownEndTime] = useState<Date | null>(null);
+  const { channel: connectedChannel, isLoading: channelLoading, mutate: mutateChannel } = useMyChannel({
+    enabled: profileChannelReady,
+  });
 
   // Load current channel and cooldown status on mount
   useEffect(() => {
@@ -47,9 +50,7 @@ export default function SettingsPage() {
 
         if (profile?.youtube_channel_id && typeof profile.youtube_channel_id === 'string') {
           setChannelId(profile.youtube_channel_id);
-          setIsLoading(true);
-          const channel = await channelsApi.getMyChannel();
-          setConnectedChannel(channel);
+          setProfileChannelReady(true);
         }
 
         // Set cooldown end time if it exists
@@ -64,8 +65,6 @@ export default function SettingsPage() {
           type: 'error',
           text: error instanceof Error ? error.message : 'Error loading channel. Please reconnect your channel.'
         });
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -176,7 +175,7 @@ export default function SettingsPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsConnecting(true);
     setMessage(null);
 
     try {
@@ -207,24 +206,24 @@ export default function SettingsPage() {
       newCooldownEndTime.setDate(newCooldownEndTime.getDate() + 7);
       setCooldownEndTime(newCooldownEndTime);
 
-      // Fetch channel info to verify and display
-      const channel = await channelsApi.getMyChannel();
-      setConnectedChannel(channel);
       setChannelId(extractedChannelId);
-      
+      setProfileChannelReady(true);
+      await invalidateDashboardData();
+      const channel = await mutateChannel();
+
       setMessage({
         type: 'success',
-        text: `Successfully connected to channel: ${channel.name}`
+        text: `Successfully connected to channel: ${channel?.name ?? 'your channel'}`
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error connecting channel:', error);
       setMessage({
         type: 'error',
-        text: error.message || 'Error connecting to channel. Please check the URL/ID and try again.'
+        text: error instanceof Error ? error.message : 'Error connecting to channel. Please check the URL/ID and try again.'
       });
-      setConnectedChannel(null);
+      setProfileChannelReady(false);
     } finally {
-      setIsLoading(false);
+      setIsConnecting(false);
     }
   };
 
@@ -423,10 +422,10 @@ export default function SettingsPage() {
           <div className="flex space-x-3">
             <button
               type="submit"
-              disabled={isLoading || !canChangeChannel()}
+              disabled={isConnecting || channelLoading || !canChangeChannel()}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md disabled:opacity-50"
             >
-              {isLoading ? 'Connecting...' : 'Connect Channel'}
+              {isConnecting ? 'Connecting...' : 'Connect Channel'}
             </button>
             
             <button

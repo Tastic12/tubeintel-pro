@@ -11,6 +11,10 @@ import { videoCollectionsApi } from '@/services/api/videoCollections';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference } from '@/lib/video-short';
+import {
+  useCollectionVideos,
+  invalidateVideoCollectionsData,
+} from '@/lib/hooks';
 
 // Format number to compact form
 const formatNumber = (num: number): string => {
@@ -25,9 +29,12 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   const collectionName = searchParams.get('name') || 'Video Collection';
   const { plan, isSubscribed } = useSubscription();
   const { hideShorts } = useShortsPreference();
+  const {
+    videos,
+    isLoading,
+    mutate: mutateVideos,
+  } = useCollectionVideos(params.listId);
 
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showVideoInfo, setShowVideoInfo] = useState(true);
   const [gridColumns, setGridColumns] = useState(3);
   const [showVideoContextMenu, setShowVideoContextMenu] = useState(false);
@@ -59,46 +66,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
     return null;
   };
 
-  // Fetch videos for this collection
-  const fetchVideos = async () => {
-    try {
-      setIsLoading(true);
-      
-      console.log(`Fetching videos for collection ${params.listId}...`);
-      
-      // Get videos from Supabase
-      const trackedVideos = await videoCollectionsApi.getVideosInCollection(params.listId);
-      console.log(`Found ${trackedVideos.length} videos in collection ${params.listId}`);
-      
-      // Convert from DB format to our app format
-      const formattedVideos: Video[] = trackedVideos.map(v => ({
-        id: v.id,
-        youtubeId: v.youtubeId,
-        channelId: v.channelId || '',
-        title: v.title,
-        description: '', // Default empty description
-        thumbnailUrl: v.thumbnailUrl || '',
-        publishedAt: v.publishedAt ? new Date(v.publishedAt) : new Date(),
-        viewCount: v.viewCount || 0,
-        likeCount: v.likeCount || 0,
-        commentCount: 0,
-        vph: 0,
-        durationIso: v.duration || null,
-      }));
-      
-      setVideos(formattedVideos);
-      console.log(`Set ${formattedVideos.length} videos in state`);
-    } catch (error) {
-      console.error('Error fetching videos:', error);
-      setError('Failed to load videos');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchVideos();
-  }, [params.listId]);
+  // Fetch videos for this collection — handled by useCollectionVideos
 
   // Check if user can add more videos
   const canAddVideo = () => {
@@ -175,7 +143,11 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
         durationIso: trackedVideo.duration || videoData.durationIso || null,
       };
       
-      setVideos(prev => [...prev, newVideo]);
+      void mutateVideos(
+        (current) => [...(current ?? []), newVideo],
+        { revalidate: false }
+      );
+      void invalidateVideoCollectionsData();
       setYoutubeUrl(''); // Clear the input
     } catch (apiError) {
       console.error('Error adding video to Supabase:', apiError);
@@ -198,8 +170,11 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
       // Remove the video using the API
       await videoCollectionsApi.removeVideoFromCollection(videoId);
       
-      // Update the videos list in UI
-      setVideos(prev => prev.filter(video => video.id !== videoId));
+      void mutateVideos(
+        (current) => (current ?? []).filter((video) => video.id !== videoId),
+        { revalidate: false }
+      );
+      void invalidateVideoCollectionsData();
     } catch (error) {
       console.error('Error removing video:', error);
       setError('Failed to remove video');

@@ -109,6 +109,51 @@ export const DEMO_OUTLIERS = DEMO_CHANNELS.flatMap((ch) =>
   .sort((a, b) => b.score - a.score)
   .slice(0, 4);
 
+export const DEMO_FOLDERS = [
+  { id: 'music', name: 'Music Producers', channelCount: 4, pinned: true },
+  { id: 'tech', name: 'Tech Reviews', channelCount: 6, pinned: false },
+  { id: 'gaming', name: 'Gaming & Esports', channelCount: 3, pinned: false },
+] as const;
+
+export const DEMO_DASHBOARD_VIDEOS = DEMO_CHANNELS.flatMap((ch) =>
+  ch.topVideos.map((v) => ({
+    id: `${ch.id}-${v.title}`,
+    title: v.title,
+    views: v.views,
+    thumb: v.thumb,
+    vph: v.outlier >= 5 ? '12.4K' : v.outlier >= 3 ? '4.2K' : '1.8K',
+    xFactor: v.outlier,
+    channel: ch.name,
+  }))
+).slice(0, 4);
+
+export const DEMO_DISCOVER_VIDEOS = [
+  { title: 'How I 10x my RPM', views: '2.1M', thumb: DEMO_IMAGES.thumbs.money, category: 'Education' },
+  { title: 'Camera tier list 2026', views: '890K', thumb: DEMO_IMAGES.thumbs.camera, category: 'Science & Tech' },
+  { title: 'Ranked grind tips', views: '1.4M', thumb: DEMO_IMAGES.thumbs.gaming, category: 'Gaming' },
+  { title: 'POV: morning commute chaos', views: '3.1M', thumb: DEMO_IMAGES.thumbs.drive, category: 'Autos' },
+] as const;
+
+export const DEMO_THUMB_EXPAND = {
+  niche: 'budget gaming PC review',
+  style: 'red arrow, shocked face',
+  groups: [
+    {
+      channel: 'GearReview HQ',
+      items: [
+        { thumb: DEMO_IMAGES.thumbs.camera, title: 'I tried every camera under $500', views: '2.4M' },
+        { thumb: DEMO_IMAGES.thumbs.camera, title: 'Best mic for beginners in 2026', views: '640K' },
+      ],
+    },
+    {
+      channel: 'BeatLab',
+      items: [
+        { thumb: DEMO_IMAGES.thumbs.beat, title: 'This beat took 20 minutes', views: '1.8M' },
+      ],
+    },
+  ],
+} as const;
+
 export const DEMO_THUMB_SEARCH = {
   query: 'shocked face red arrow money',
   results: [

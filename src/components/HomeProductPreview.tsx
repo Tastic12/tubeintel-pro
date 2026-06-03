@@ -1,34 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { OutlierBadge } from '@/components/OutlierBadge';
-import { formatCount } from '@/lib/format';
-import { DEMO_CHANNELS, DEMO_OUTLIERS, DEMO_THUMB_SEARCH } from '@/lib/demo-preview-data';
+import {
+  FaYoutube,
+  FaChartLine,
+  FaUsers,
+  FaPlay,
+  FaBook,
+  FaFire,
+  FaImage,
+  FaUser,
+  FaPlus,
+  FaSync,
+  FaCog,
+  FaEllipsisV,
+} from 'react-icons/fa';
+import {
+  DEMO_DASHBOARD_VIDEOS,
+  DEMO_DISCOVER_VIDEOS,
+  DEMO_FOLDERS,
+  DEMO_THUMB_EXPAND,
+} from '@/lib/demo-preview-data';
 
-const demoTabs = [
-  { id: 'competitors', label: 'Competitors' },
-  { id: 'outliers', label: 'Performing now' },
-  { id: 'thumbnails', label: 'Thumbnail search' },
-] as const;
+type DemoPage = 'dashboard' | 'channels' | 'discover' | 'thumbnails';
 
-type DemoTab = (typeof demoTabs)[number]['id'];
-
-function SourcePill({ source }: { source: 'You' | 'Competitor' | 'Trending' }) {
-  const cls =
-    source === 'You'
-      ? 'bg-[#4361ee]'
-      : source === 'Trending'
-        ? 'bg-indigo-600/90'
-        : 'bg-zinc-700/90';
-  return (
-    <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold text-white ${cls}`}>
-      {source === 'Trending' ? 'Trending' : source}
-    </span>
-  );
-}
+const NAV: Array<{ id: DemoPage; label: string; icon: React.ReactNode; href: string }> = [
+  { id: 'dashboard', label: 'Dashboard', icon: <FaChartLine size={14} />, href: '/dashboard' },
+  { id: 'channels', label: 'Channels', icon: <FaUsers size={14} />, href: '/dashboard/competitors' },
+  { id: 'discover', label: 'Discover', icon: <FaFire size={14} />, href: '/dashboard/discover' },
+  { id: 'thumbnails', label: 'Thumbnails', icon: <FaImage size={14} />, href: '/dashboard/thumbnails' },
+];
 
 export function HomeProductPreview() {
-  const [tab, setTab] = useState<DemoTab>('competitors');
+  const [page, setPage] = useState<DemoPage>('dashboard');
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 xl:px-10 py-16 sm:py-20 border-b border-white/10 bg-black/20">
@@ -41,70 +45,24 @@ export function HomeProductPreview() {
             Built for niche tracking, not generic analytics
           </h2>
           <p className="mt-4 text-gray-400">
-            Sample data only — static images, no API calls. Click the tabs to explore the real
-            layout.
+            Sample data only — static preview of the real V2 dashboard. Click the sidebar to switch
+            pages.
           </p>
         </div>
 
         <div
-          className="rounded-xl ring-1 ring-white/10 bg-[#0a1628]/80 backdrop-blur-sm overflow-hidden shadow-2xl shadow-black/40"
+          className="rounded-xl overflow-hidden ring-1 ring-white/20 shadow-2xl shadow-black/40 bg-gradient-to-br from-[#000b18]/90 via-[#00264d]/40 to-[#00498d]/30"
           aria-label="Interactive product preview"
         >
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-black/30">
-            <span className="h-3 w-3 rounded-full bg-red-500/80" />
-            <span className="h-3 w-3 rounded-full bg-amber-500/80" />
-            <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
-            <span className="ml-3 text-xs text-gray-500">clikstats.com/dashboard/competitors</span>
-          </div>
-
-          <div className="flex min-h-[360px]">
-            <aside className="hidden sm:flex w-36 shrink-0 flex-col border-r border-white/10 bg-black/20 p-2 gap-0.5">
-              <span className="px-2 py-1.5 text-[10px] font-semibold uppercase text-gray-500">
-                Competitors
-              </span>
-              <span className="px-2 py-1.5 text-xs rounded-md bg-[#4361ee]/20 text-[#4361ee] font-medium">
-                Channels
-              </span>
-              <span className="px-2 py-1.5 text-xs text-gray-400">Videos</span>
-              <span className="mt-3 px-2 py-1.5 text-[10px] font-semibold uppercase text-gray-500">
-                Insights
-              </span>
-              <span className="px-2 py-1.5 text-xs text-gray-400">Performing now</span>
-            </aside>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-[#0a1628]/60">
-                <img
-                  src={DEMO_CHANNELS[0].avatar}
-                  alt=""
-                  className="h-7 w-7 rounded-full object-cover ring-1 ring-white/10"
-                />
-                <span className="text-[10px] text-gray-400 truncate">
-                  Your channel · {formatCount(420000)} subs
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-1 p-2 border-b border-white/10">
-                {demoTabs.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium min-h-9 transition-colors ${
-                      tab === t.id
-                        ? 'bg-[#4361ee]/20 text-[#4361ee] ring-1 ring-[#4361ee]/40'
-                        : 'text-gray-400 hover:bg-white/5'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="p-3 sm:p-4">
-                {tab === 'competitors' && <CompetitorsPreview />}
-                {tab === 'outliers' && <OutliersPreview />}
-                {tab === 'thumbnails' && <ThumbnailsPreview />}
+          <div className="flex min-h-[400px] max-h-[520px]">
+            <DemoSidebar active={page} onSelect={setPage} />
+            <div className="flex-1 flex flex-col min-w-0">
+              <DemoTopNav page={page} />
+              <div className="flex-1 p-3 sm:p-4 overflow-y-auto">
+                {page === 'dashboard' && <DashboardPreview />}
+                {page === 'channels' && <ChannelsPreview />}
+                {page === 'discover' && <DiscoverPreview />}
+                {page === 'thumbnails' && <ThumbnailsPreview />}
               </div>
             </div>
           </div>
@@ -114,58 +72,148 @@ export function HomeProductPreview() {
   );
 }
 
-function CompetitorsPreview() {
+function DemoSidebar({
+  active,
+  onSelect,
+}: {
+  active: DemoPage;
+  onSelect: (p: DemoPage) => void;
+}) {
+  return (
+    <aside className="hidden sm:flex w-44 shrink-0 flex-col bg-white/10 backdrop-blur-md border-r border-white/20 py-4">
+      <div className="px-3 mb-4 flex items-center gap-2">
+        <FaYoutube className="text-red-500 h-5 w-5 shrink-0" />
+        <span className="font-bold text-sm text-white">ClikStats</span>
+      </div>
+
+      <div className="flex flex-col gap-0.5 px-2">
+        {NAV.slice(0, 1).map((item) => (
+          <SidebarBtn key={item.id} item={item} active={active === item.id} onSelect={onSelect} />
+        ))}
+
+        <div className="px-2 py-2 mt-1">
+          <div className="flex items-center gap-1">
+            <div className="border-t border-gray-700 flex-grow" />
+            <span className="text-[9px] text-gray-500 font-medium">TRACKER</span>
+            <div className="border-t border-gray-700 flex-grow" />
+          </div>
+        </div>
+
+        {NAV.slice(1).map((item) => (
+          <SidebarBtn key={item.id} item={item} active={active === item.id} onSelect={onSelect} />
+        ))}
+
+        <button
+          type="button"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 mt-0.5"
+          disabled
+        >
+          <FaBook size={14} />
+          Beginner&apos;s Guide
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarBtn({
+  item,
+  active,
+  onSelect,
+}: {
+  item: (typeof NAV)[number];
+  active: boolean;
+  onSelect: (p: DemoPage) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors w-full text-left ${
+        active
+          ? 'bg-[#00264d] text-blue-200'
+          : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+      }`}
+    >
+      {item.icon}
+      {item.label}
+    </button>
+  );
+}
+
+function DemoTopNav({ page }: { page: DemoPage }) {
+  const item = NAV.find((n) => n.id === page)!;
+  return (
+    <header className="h-11 shrink-0 bg-white/10 backdrop-blur-md border-b border-white/20 flex items-center justify-between px-4">
+      <h2 className="text-xs sm:text-sm font-semibold text-white truncate">
+        YouTube Analytics Dashboard
+        <span className="text-gray-500 font-normal hidden sm:inline"> · {item.href}</span>
+      </h2>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+          <FaUser className="h-3 w-3 text-white" />
+        </div>
+        <span className="text-xs text-white hidden sm:inline">Creator</span>
+      </div>
+    </header>
+  );
+}
+
+function DashboardPreview() {
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {['All', 'Music', 'Unsorted'].map((cat, i) => (
-          <span
-            key={cat}
-            className={`rounded-full px-2.5 py-1 text-[10px] font-medium ring-1 ${
-              i === 1
-                ? 'bg-[#4361ee] text-white ring-[#4361ee]'
-                : 'bg-white/5 text-gray-400 ring-white/10'
-            }`}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Average VPH', value: '4.2K' },
+          { label: 'Highest VPH', value: '12.4K' },
+          { label: 'VPH Trend', value: '+18%', accent: true },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="bg-white/10 backdrop-blur-sm p-2 rounded-lg border border-white/20"
           >
-            {cat}
-          </span>
+            <p className="text-[9px] text-white/80">{stat.label}</p>
+            <p
+              className={`text-sm font-semibold mt-0.5 ${stat.accent ? 'text-green-300' : 'text-white'}`}
+            >
+              {stat.value}
+            </p>
+          </div>
         ))}
       </div>
 
-      <p className="text-[10px] text-gray-500">
-        Top uploads per channel · side-by-side (sample folder: Music)
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-medium text-white">Recent uploads</p>
+        <div className="flex gap-1">
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-600/80 text-white">Grid</span>
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400">List</span>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {DEMO_CHANNELS.map((ch) => (
-          <div key={ch.id} className="min-w-0 rounded-lg ring-1 ring-white/10 overflow-hidden">
-            <div className="flex items-center gap-2 px-2 py-2 border-b border-white/10 bg-black/20">
-              <img src={ch.avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold truncate text-white">{ch.name}</p>
-                <p className="text-[9px] text-gray-400">
-                  {ch.subs} subs · {ch.views} views
-                </p>
-              </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        {DEMO_DASHBOARD_VIDEOS.map((v) => (
+          <div
+            key={v.id}
+            className="bg-white/10 backdrop-blur-sm rounded-lg overflow-hidden border border-white/10 flex flex-col"
+          >
+            <div className="aspect-video relative">
+              <img src={v.thumb} alt="" className="w-full h-full object-cover" />
             </div>
-            <div className="p-1.5 space-y-1.5">
-              {ch.topVideos.slice(0, 2).map((v) => (
-                <div
-                  key={v.title}
-                  className="rounded-md overflow-hidden ring-1 ring-white/10 bg-white/5"
-                >
-                  <div className="aspect-video relative">
-                    <img src={v.thumb} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute top-1 right-1">
-                      <OutlierBadge score={v.outlier} size="sm" />
-                    </div>
-                  </div>
-                  <p className="p-1.5 text-[10px] font-medium line-clamp-2 leading-tight text-white">
-                    {v.title}
-                  </p>
-                  <p className="px-1.5 pb-1.5 text-[9px] text-gray-400">{v.views} views</p>
-                </div>
-              ))}
+            <div className="p-2 flex-1">
+              <p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+                {v.title}
+              </p>
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                <span className="text-[8px] bg-white/10 text-gray-200 rounded-full px-1.5 py-0.5">
+                  {v.views}
+                </span>
+                <span className="text-[8px] bg-blue-900/50 text-blue-200 rounded-full px-1.5 py-0.5 font-medium">
+                  {v.vph} VPH
+                </span>
+                <span className="text-[8px] bg-blue-200 text-blue-800 rounded-full px-1.5 py-0.5 font-bold">
+                  {v.xFactor.toFixed(1)}x
+                </span>
+              </div>
             </div>
           </div>
         ))}
@@ -174,37 +222,101 @@ function CompetitorsPreview() {
   );
 }
 
-function OutliersPreview() {
+function ChannelsPreview() {
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 text-[10px]">
-        <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-gray-300">
-          Min score: 1.5×
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-white">Niche Folders</h3>
+        <span className="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
+          Free: 3/1 folders
         </span>
-        <span className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-gray-300">
-          Source: All
-        </span>
-        <span className="text-gray-500 self-center">Sorted by outlier score</span>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {DEMO_OUTLIERS.map((v, i) => (
+        <div className="border border-dashed border-white/20 rounded-lg p-3 flex items-center gap-2 text-indigo-400">
+          <FaPlus size={12} />
+          <span className="text-[10px] font-medium">Create new competitor list</span>
+        </div>
+
+        {DEMO_FOLDERS.map((folder) => (
           <div
-            key={v.id}
-            className="flex gap-2 rounded-lg ring-1 ring-white/10 overflow-hidden bg-black/20"
+            key={folder.id}
+            className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-lg p-3 relative group"
           >
-            <div className="relative w-28 sm:w-32 shrink-0 aspect-video">
-              <img src={v.thumb} alt="" className="w-full h-full object-cover" />
-              <span className="absolute top-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1 rounded">
-                #{i + 1}
-              </span>
-              <div className="absolute top-1 right-1">
-                <OutlierBadge score={v.score} size="sm" />
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2 min-w-0">
+                <FaUsers className="text-blue-400 shrink-0" size={12} />
+                <p className="text-xs font-medium text-white truncate">{folder.name}</p>
               </div>
+              <FaEllipsisV className="text-white/40 shrink-0" size={10} />
             </div>
-            <div className="py-2 pr-2 min-w-0 flex flex-col justify-center">
-              <p className="text-xs font-medium line-clamp-2 text-white">{v.title}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{v.channel}</p>
-              <p className="text-[9px] text-gray-500 mt-1">{v.views} views · Competitor</p>
+            <p className="text-[9px] text-gray-400 mt-1.5 flex items-center gap-1">
+              <FaUsers size={9} />
+              {folder.channelCount} channels
+              {folder.pinned && <span className="text-blue-400 ml-1">· pinned</span>}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DiscoverPreview() {
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+          <FaFire className="text-orange-400" size={12} />
+          Discover
+        </h3>
+        <p className="text-[9px] text-gray-400 mt-0.5">Trending in GB · sample data</p>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full border border-white/20 text-gray-300">
+          <FaCog size={8} /> Preferences
+        </span>
+        <span className="flex items-center gap-1 text-[9px] px-2 py-1 rounded-full bg-blue-600/80 text-white">
+          <FaSync size={8} /> Refresh trending
+        </span>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {['All categories', 'Gaming', 'Science & Tech', 'Music'].map((cat, i) => (
+          <span
+            key={cat}
+            className={`shrink-0 text-[9px] px-2 py-1 rounded-full border whitespace-nowrap ${
+              i === 0
+                ? 'bg-blue-600 text-white border-blue-500'
+                : 'bg-white/5 text-gray-400 border-white/20'
+            }`}
+          >
+            {cat}
+          </span>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {DEMO_DISCOVER_VIDEOS.map((v) => (
+          <div
+            key={v.title}
+            className="rounded-lg border border-white/20 bg-white/5 overflow-hidden"
+          >
+            <div className="aspect-video relative">
+              <img src={v.thumb} alt="" className="w-full h-full object-cover" />
+              <span className="absolute top-1 left-1 rounded-full bg-orange-500/90 px-1.5 py-0.5 text-[8px] font-semibold text-white">
+                Trending
+              </span>
+              <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[8px] text-white truncate max-w-[85%]">
+                {v.category}
+              </span>
+            </div>
+            <div className="p-1.5">
+              <p className="text-[10px] font-medium text-white line-clamp-2 leading-tight">
+                {v.title}
+              </p>
+              <p className="text-[8px] text-gray-400 mt-0.5">{v.views} views</p>
             </div>
           </div>
         ))}
@@ -214,38 +326,63 @@ function OutliersPreview() {
 }
 
 function ThumbnailsPreview() {
+  const { niche, style, groups } = DEMO_THUMB_EXPAND;
+
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
-        <div className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-white">
-          {DEMO_THUMB_SEARCH.query}
+      <div>
+        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+          <FaImage className="text-blue-400" size={12} />
+          Thumbnail Search
+        </h3>
+        <p className="text-[9px] text-gray-400 mt-0.5">
+          Search YouTube by niche + style — sample results
+        </p>
+      </div>
+
+      <section className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
+        <p className="text-[10px] font-semibold text-blue-200 flex items-center gap-1">
+          <FaYoutube size={10} />
+          Search YouTube by niche + style
+        </p>
+        <div className="rounded-md bg-gray-900/60 border border-white/20 px-2 py-1.5 text-[10px] text-white">
+          {niche}
         </div>
-        <span className="rounded-md bg-[#4361ee] px-3 py-2 text-xs inline-flex items-center text-white font-medium">
-          Search
+        <div className="rounded-md bg-gray-900/60 border border-white/20 px-2 py-1.5 text-[10px] text-gray-300">
+          {style}
+        </div>
+        <span className="inline-block text-[9px] px-3 py-1 rounded-full bg-blue-600 text-white font-medium">
+          Search YouTube
         </span>
-      </div>
-      <p className="text-[10px] text-gray-500">4 matches · indexed thumbnails only (sample)</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {DEMO_THUMB_SEARCH.results.map((r) => (
-          <div
-            key={r.title}
-            className="rounded-lg overflow-hidden ring-1 ring-white/10 bg-white/5"
-          >
-            <div className="aspect-video relative">
-              <img src={r.thumb} alt="" className="w-full h-full object-cover" />
-              <span className="absolute top-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-bold text-white">
-                {r.similarity}%
-              </span>
-              <span className="absolute bottom-1 left-1">
-                <SourcePill source={r.source} />
-              </span>
-            </div>
-            <p className="p-1.5 text-[10px] font-medium line-clamp-2 leading-tight text-white">
-              {r.title}
-            </p>
+      </section>
+
+      <p className="text-[9px] text-gray-500">Grouped by channel · {groups.length} channels found</p>
+
+      {groups.map((g) => (
+        <div key={g.channel} className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-medium text-white">{g.channel}</p>
+            <span className="text-[8px] px-2 py-0.5 rounded-full border border-blue-500/40 text-blue-300">
+              Track channel
+            </span>
           </div>
-        ))}
-      </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {g.items.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-md border border-white/10 bg-white/5 overflow-hidden"
+              >
+                <div className="aspect-video">
+                  <img src={item.thumb} alt="" className="w-full h-full object-cover" />
+                </div>
+                <p className="p-1.5 text-[9px] text-white line-clamp-2 leading-tight">
+                  {item.title}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

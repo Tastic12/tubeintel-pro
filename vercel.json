@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/thumbnail-embed",
-      "schedule": "*/30 * * * *"
+      "path": "/api/cron/thumbnail-embed?max_batches=12",
+      "schedule": "0 3 * * *"
     }
   ]
 }

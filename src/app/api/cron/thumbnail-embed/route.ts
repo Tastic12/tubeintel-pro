@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { runThumbnailEmbedCron } from '@/lib/thumbnail-embed-service';
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 function authorizeCron(request: Request): boolean {

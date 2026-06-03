@@ -10,7 +10,9 @@ import {
   FaLock,
   FaPlay,
   FaBook,
-  FaShieldAlt
+  FaShieldAlt,
+  FaFire,
+  FaImage
 } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -225,7 +227,7 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           icon={<FaChartLine size={18} />} 
           label="Dashboard" 
           href="/dashboard"
-          isActive={isActive('/dashboard') && !isActive('/dashboard/competitors')} 
+          isActive={isActive('/dashboard') && !pathname.startsWith('/dashboard/competitors') && !pathname.startsWith('/dashboard/videos') && !pathname.startsWith('/dashboard/discover') && !pathname.startsWith('/dashboard/thumbnails') && !pathname.startsWith('/dashboard/guide') && !pathname.startsWith('/dashboard/admin')} 
           collapsed={collapsed}
           dataTourTarget="dashboard"
         />
@@ -246,6 +248,22 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           label="Videos" 
           href="/dashboard/videos"
           isActive={isActive('/dashboard/videos')} 
+          collapsed={collapsed}
+        />
+
+        <SidebarItem 
+          icon={<FaFire size={18} />} 
+          label="Discover" 
+          href="/dashboard/discover"
+          isActive={isActive('/dashboard/discover')} 
+          collapsed={collapsed}
+        />
+
+        <SidebarItem 
+          icon={<FaImage size={18} />} 
+          label="Thumbnails" 
+          href="/dashboard/thumbnails"
+          isActive={isActive('/dashboard/thumbnails')} 
           collapsed={collapsed}
         />
         

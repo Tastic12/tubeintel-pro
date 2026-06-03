@@ -1,4 +1,7 @@
 import { Video } from '@/types';
+import { classifyAsShort, hasShortsHashtag, isShortDuration } from '@/lib/classify-short';
+
+export { isShortDuration, classifyAsShort };
 
 /** Parse ISO 8601 duration (e.g. PT1M30S) to total seconds. */
 export function parseDurationSeconds(durationIso: string | null | undefined): number | null {
@@ -15,21 +18,26 @@ export function parseDurationSeconds(durationIso: string | null | undefined): nu
   return total > 0 ? total : null;
 }
 
-/** True when video is a YouTube Short (< 60s) or tagged as #shorts. */
+/** Portrait thumbnail, duration under 60s, or #shorts tag when metadata is sparse. */
 export function isYouTubeShort(video: Video): boolean {
-  const seconds = parseDurationSeconds(video.durationIso);
-  if (seconds != null) {
-    return seconds > 0 && seconds < 60;
+  if (
+    classifyAsShort({
+      durationIso: video.durationIso,
+      thumbnailWidth: video.thumbnailWidth,
+      thumbnailHeight: video.thumbnailHeight,
+    })
+  ) {
+    return true;
   }
 
-  const title = video.title.toLowerCase();
-  const description = (video.description ?? '').toLowerCase();
-  return (
-    title.includes('#shorts') ||
-    title.includes('#short') ||
-    description.includes('#shorts') ||
-    description.includes('#short')
-  );
+  const hasThumbDims =
+    (video.thumbnailWidth ?? 0) > 0 && (video.thumbnailHeight ?? 0) > 0;
+
+  if (!hasThumbDims && parseDurationSeconds(video.durationIso) == null) {
+    return hasShortsHashtag(video.title, video.description);
+  }
+
+  return false;
 }
 
 export function filterVideosByShortsPreference(

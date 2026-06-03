@@ -1,28 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/request-auth';
 import { createAdminClient } from '@/utils/supabase/server';
+import { classifyAsShort } from '@/lib/classify-short';
 
 type SyncVideoInput = {
   youtubeVideoId: string;
   viewCount: number;
   publishedAt?: string | Date | null;
   durationIso?: string | null;
+  thumbnailWidth?: number | null;
+  thumbnailHeight?: number | null;
 };
 
 function toIsoTimestamp(value?: string | Date | null): string | null {
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-/** Matches SQL is_short_duration: under 60 seconds, no hour component. */
-function isShortDuration(durationIso: string | null | undefined): boolean {
-  if (!durationIso) return false;
-  if (/PT\d+H/.test(durationIso)) return false;
-  const minutes = parseInt(durationIso.match(/(\d+)M/)?.[1] ?? '0', 10);
-  const seconds = parseInt(durationIso.match(/(\d+)S/)?.[1] ?? '0', 10);
-  const total = minutes * 60 + seconds;
-  return total > 0 && total < 60;
 }
 
 export async function POST(request: Request) {
@@ -60,7 +53,11 @@ export async function POST(request: Request) {
         view_count: Math.max(0, Number(v.viewCount) || 0),
         published_at: toIsoTimestamp(v.publishedAt),
         duration_iso: v.durationIso ?? null,
-        is_short: isShortDuration(v.durationIso),
+        is_short: classifyAsShort({
+          durationIso: v.durationIso,
+          thumbnailWidth: v.thumbnailWidth,
+          thumbnailHeight: v.thumbnailHeight,
+        }),
         source,
         updated_at: new Date().toISOString(),
       }));

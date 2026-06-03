@@ -8,7 +8,10 @@ import { Redis } from '@upstash/redis';
 export type LimiterId =
   | 'sync-videos'
   | 'competitors-init'
-  | 'competitors-refresh';
+  | 'competitors-refresh'
+  | 'discover-sync'
+  | 'thumbnail-search'
+  | 'thumbnail-expand';
 
 type LimiterSpec = {
   perMinute: number;
@@ -20,6 +23,9 @@ const LIMITS: Record<LimiterId, LimiterSpec> = {
   'sync-videos': { perMinute: 10, perDay: 100 },
   'competitors-init': { perMinute: 20, perDay: 150 },
   'competitors-refresh': { perMinute: 10, perDay: 80 },
+  'discover-sync': { perMinute: 2, perDay: 10 },
+  'thumbnail-search': { perMinute: 10, perDay: 120 },
+  'thumbnail-expand': { perMinute: 2, perDay: 15 },
 };
 
 let warnedAboutMissingEnv = false;

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/thumbnail-embed",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

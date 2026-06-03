@@ -22,6 +22,8 @@ export async function attachSqlOutlierScores(
           viewCount: v.viewCount,
           publishedAt: v.publishedAt,
           durationIso: v.durationIso ?? null,
+          thumbnailWidth: v.thumbnailWidth ?? null,
+          thumbnailHeight: v.thumbnailHeight ?? null,
         })),
       }),
     });

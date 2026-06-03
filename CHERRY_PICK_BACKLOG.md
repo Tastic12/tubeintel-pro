@@ -23,44 +23,73 @@ Implemented via `video_outlier_cache` table, `/api/outliers/sync`, and enhanced 
 
 **Done (2026-06-02):**
 - **Hide Shorts** — toggle in profile menu, localStorage + cross-tab sync, **on by default**
+- **Portrait thumbnail detection** — `classify_as_short` (portrait thumb OR duration < 60s); migration `20260603_classify_as_short.sql`
 
 **Deferred:**
 - Comparison tables — revisit when we pick a placement in the UI
 
 ---
 
-## Priority 4 — SWR data layer refactor
+## ~~Priority 4 — SWR data layer refactor~~ ✅ Done
 
 **Status:** Done (2026-06-02). Backend-only; UI unchanged.
 
-- ✅ `swr` + `src/lib/api-client.ts` (`parseJsonResponse`, `postAuthedApi`, `patchAuthedApi`)
-- ✅ `src/lib/hooks.ts` — channel, videos, competitor lists, collections hooks
-- ✅ `SWRConfig` in `Providers.tsx`
-- ✅ Dashboard, competitors (list + detail), videos (list + detail), settings
+---
+
+## ~~Priority 5 — Discover / Trending tab~~ ✅ Done
+
+**Status:** Done (2026-06-02). V2 blue UI; sidebar link under TRACKER.
+
+- ✅ Migration `20260602_discover_tab.sql`
+- ✅ `/dashboard/discover` + API routes
+- ⏭ Nightly cron optional later (see Future enhancements)
 
 ---
 
-## Priority 5 — Discover / Trending tab
+## Priority 6 — Thumbnail AI search ✅ Shipped (2026-06-03)
 
-**Source:** `src/app/tracking/discover/`, `lib/youtube-discover.ts`, `lib/discover-db.ts`
+**Scope delivered in V2:**
 
-- Browse YouTube Trending by region/category
-- Sync to DB, optional nightly cron
-- New page under V2 dashboard nav
+| Piece | Status |
+|-------|--------|
+| CLIP embeddings (`@xenova/transformers`) + pgvector | ✅ `lib/embeddings.ts`, migration `20260604_thumbnail_search.sql` |
+| Text / image / similar-to-video search | ✅ `/api/thumbnails/*` |
+| Auto-index banner + manual embed | ❌ Removed from UI — indexing should be server-side (see Future enhancements) |
+| `/dashboard/thumbnails` page (V2 blue UI) | ✅ |
+| Sidebar link + Discover “Find similar” | ✅ |
+| **Tier B: Expand on YouTube** | ✅ `/api/thumbnails/expand-search` — niche phrase + style query, ~100 API units/search |
+| **Group by channel + Track channel** | ✅ On expand results |
 
-**Why:** Niche discovery beyond tracked competitors.
+**Run in Supabase (in order):** `20260603_classify_as_short.sql` → `20260604_thumbnail_search.sql`  
+**Requires:** pgvector enabled on project; `npm install` picks up `@xenova/transformers`.
+
+**V2 corpus (index queue):** video collections → competitor outlier cache → Discover trending → own channel cache.
 
 ---
 
-## Priority 6 — Thumbnail AI search (largest lift)
+## Priority 6 — Future enhancements (deferred — do not forget)
 
-**Source:** `lib/embeddings.ts`, thumbnail API routes, pgvector migrations
+These were discussed but intentionally **not** in the initial ship. Revisit when users ask or quota allows.
 
-- CLIP embeddings (`@xenova/transformers`) + pgvector in Supabase
-- Text search, image upload, similar-to-video
-- Background indexing queue + progress banner
+### Indexing & infrastructure
+- [ ] **Server-side embed cron** — Supabase Edge Function or scheduled job so indexing doesn’t depend on someone having the app open
+- [ ] **Discover nightly cron** — `discover-trending-cron` at `0 4 * * *` to keep trending corpus fresh
+- [ ] **Retry queue** for failed thumbnail URL embeds (expired CDN URLs)
+- [ ] **Rate limits on embed-batch** separate from search (CLIP CPU cost)
 
-**Why:** Strong differentiator; needs new migrations, API routes, and UI.
+### Discover / corpus expansion
+- [ ] **Scheduled Tier B niche searches** — e.g. weekly auto-run saved phrases (“true crime UK”) to grow index without manual action
+- [ ] **Saved style watches** — alert when new indexed thumbs match a saved query
+- [ ] **Larger Discover window** — extend 14-day embed queue beyond trending staleness
+
+### Search quality & UX
+- [ ] **Fine-tuned / niche model** for YouTube thumbnail tropes (beyond generic CLIP)
+- [ ] **Style cluster labels** — auto-group results (“neon text”, “split face”)
+- [ ] **Outlier badge** on thumbnail results when SQL score exists
+- [ ] **Plan gating** — Pro-only expand search or higher daily expand limits
+
+### Not planned
+- [ ] **Full YouTube crawl (Tier C)** — too expensive; rejected in original ROADMAP
 
 ---
 

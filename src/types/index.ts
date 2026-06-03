@@ -43,6 +43,10 @@ export interface Video {
   title: string;
   description: string;
   thumbnailUrl: string;
+  /** YouTube thumbnail width — used for portrait Short detection */
+  thumbnailWidth?: number | null;
+  /** YouTube thumbnail height — used for portrait Short detection */
+  thumbnailHeight?: number | null;
   publishedAt: Date;
   viewCount: number;
   likeCount: number;

@@ -7,6 +7,7 @@ import { competitorListsApi } from '@/services/api/competitorLists';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
 import { DASHBOARD_VIDEO_REFRESH_MS } from '@/lib/swr-config';
+import { fetchApi, parseJsonResponse, postAuthedApi } from '@/lib/api-client';
 
 export const swrKeys = {
   myChannel: 'my-channel',
@@ -16,6 +17,8 @@ export const swrKeys = {
   competitorListVideos: (listId: string) => ['competitor-list-videos', listId] as const,
   videoCollectionsPage: 'video-collections-page',
   collectionVideos: (collectionId: string) => ['collection-videos', collectionId] as const,
+  discoverVideos: (categoryId: number | null, longFormOnly: boolean) =>
+    ['discover-videos', categoryId, longFormOnly] as const,
 } as const;
 
 function swrLoading<T>(data: T | undefined, error: unknown) {
@@ -342,4 +345,199 @@ export function useCollectionVideos(
     mutate,
     isValidating,
   };
+}
+
+export interface DiscoveredVideo {
+  id: string;
+  video_id: string;
+  title: string;
+  thumbnail_url: string;
+  thumbnail_width: number | null;
+  thumbnail_height: number | null;
+  channel_id: string | null;
+  channel_name: string | null;
+  category_id: number;
+  region_code: string;
+  published_at: string | null;
+  view_count: number | null;
+  like_count: number | null;
+  is_short: boolean | null;
+  last_seen_at: string;
+}
+
+export type DiscoverSettings = {
+  region_code: string;
+  category_ids: number[];
+};
+
+async function getDiscoverAuthHeaders(): Promise<HeadersInit> {
+  const { supabase } = await import('@/lib/supabase');
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  return { Authorization: `Bearer ${session.access_token}` };
+}
+
+export function useDiscoverVideos(categoryId?: number | null, longFormOnly = true) {
+  const { data, error, mutate, isValidating } = useSWR(
+    swrKeys.discoverVideos(categoryId ?? null, longFormOnly),
+    async () => {
+      const headers = await getDiscoverAuthHeaders();
+      const params = new URLSearchParams({ limit: '100' });
+      if (categoryId) params.set('category_id', String(categoryId));
+      if (longFormOnly) params.set('long_form_only', '1');
+      return fetchApi<{
+        videos: DiscoveredVideo[];
+        region_code: string;
+        category_ids: number[];
+        stats?: {
+          rows_in_db: number;
+          unique_videos: number;
+          showing: number;
+          shorts_in_pool: number;
+          long_form_in_pool?: number;
+        };
+      }>(`/api/discover/videos?${params}`, { headers });
+    }
+  );
+
+  return {
+    videos: data?.videos,
+    stats: data?.stats,
+    regionCode: data?.region_code,
+    categoryIds: data?.category_ids,
+    isLoading: swrLoading(data, error),
+    isError: error,
+    mutate,
+    isValidating,
+  };
+}
+
+export async function fetchDiscoverSettings(): Promise<DiscoverSettings> {
+  const headers = await getDiscoverAuthHeaders();
+  return fetchApi<DiscoverSettings>('/api/discover/settings', { headers });
+}
+
+export async function saveDiscoverSettings(settings: DiscoverSettings) {
+  const headers = await getDiscoverAuthHeaders();
+  const response = await fetch('/api/discover/settings', {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  return parseJsonResponse<{ success: boolean; settings: DiscoverSettings }>(response);
+}
+
+export async function syncDiscoverTrending() {
+  return postAuthedApi<{
+    saved: number;
+    unique_videos: number;
+    fetched: number;
+    api_calls: number;
+    message?: string;
+    errors?: string[];
+  }>('/api/discover/sync', {});
+}
+
+export type ThumbnailSearchResult = {
+  youtube_video_id: string;
+  thumbnail_url: string;
+  similarity: number;
+  title: string | null;
+  view_count: number | null;
+  published_at: string | null;
+  outlier_score: number | null;
+  is_short: boolean | null;
+  source: 'own' | 'competitor' | 'discovered' | 'collection' | 'youtube_expand' | 'unknown';
+  channel_id: string | null;
+  channel_name: string | null;
+};
+
+async function getThumbnailAuthHeaders(): Promise<HeadersInit> {
+  const { supabase } = await import('@/lib/supabase');
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+  return { Authorization: `Bearer ${session.access_token}` };
+}
+
+export async function searchThumbnails(query: string, matchCount = 24): Promise<ThumbnailSearchResult[]> {
+  const result = await postAuthedApi<{ results: ThumbnailSearchResult[] }>('/api/thumbnails/search', {
+    query,
+    match_count: String(matchCount),
+  });
+  return result.results || [];
+}
+
+export async function searchSimilarToVideo(
+  youtubeVideoId: string,
+  matchCount = 24
+): Promise<ThumbnailSearchResult[]> {
+  const result = await postAuthedApi<{ results: ThumbnailSearchResult[] }>(
+    '/api/thumbnails/search-similar',
+    { youtube_video_id: youtubeVideoId, match_count: String(matchCount) }
+  );
+  return result.results || [];
+}
+
+export async function searchThumbnailsByImage(
+  file: File,
+  matchCount = 24
+): Promise<ThumbnailSearchResult[]> {
+  const headers = await getThumbnailAuthHeaders();
+  const form = new FormData();
+  form.append('image', file);
+  form.append('match_count', String(matchCount));
+  const response = await fetch('/api/thumbnails/search-image', {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+  const json = await parseJsonResponse<{ results: ThumbnailSearchResult[] }>(response);
+  return json.results || [];
+}
+
+export async function expandThumbnailSearchOnYouTube(input: {
+  nicheQuery: string;
+  styleQuery?: string;
+  referenceVideoId?: string;
+  maxResults?: number;
+}): Promise<{ results: ThumbnailSearchResult[]; message?: string }> {
+  const result = await postAuthedApi<{ results: ThumbnailSearchResult[]; message?: string }>(
+    '/api/thumbnails/expand-search',
+    {
+      niche_query: input.nicheQuery,
+      style_query: input.styleQuery,
+      reference_video_id: input.referenceVideoId,
+      max_results: input.maxResults ?? 25,
+    }
+  );
+  return { results: result.results || [], message: result.message };
+}
+
+export async function embedThumbnailBatch(): Promise<{ processed: number; remaining: number }> {
+  return postAuthedApi('/api/thumbnails/embed-batch', {});
+}
+
+export async function fetchPendingThumbnailCount(): Promise<number> {
+  const headers = await getThumbnailAuthHeaders();
+  const json = await fetchApi<{ count?: number }>('/api/thumbnails/pending-count', { headers });
+  return json.count ?? 0;
+}
+
+export type ThumbnailIndexStat = {
+  source: string;
+  total: number;
+  indexed: number;
+  pending: number;
+};
+
+export async function fetchThumbnailIndexStats(): Promise<{
+  bySource: ThumbnailIndexStat[];
+  totals: { total: number; indexed: number; pending: number };
+}> {
+  const headers = await getThumbnailAuthHeaders();
+  return fetchApi('/api/thumbnails/index-stats', { headers });
 }

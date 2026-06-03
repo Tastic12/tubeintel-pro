@@ -1,15 +1,12 @@
 import { Video, Channel, VideoMetadata } from '@/types';
 import { IYouTubeService } from './interfaces';
 import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
+import { pickThumbnailFromYoutube } from '@/lib/thumbnail-meta';
 
 // Format a YouTube video API response to our app's Video type
 const formatVideo = (item: any): Video => {
   const { id, snippet, statistics = {}, contentDetails } = item;
-  const thumb =
-    snippet?.thumbnails?.medium?.url ||
-    snippet?.thumbnails?.high?.url ||
-    snippet?.thumbnails?.default?.url ||
-    '';
+  const picked = pickThumbnailFromYoutube(snippet?.thumbnails);
 
   return {
     id: id,
@@ -17,7 +14,9 @@ const formatVideo = (item: any): Video => {
     channelId: snippet.channelId,
     title: snippet.title,
     description: snippet.description ?? '',
-    thumbnailUrl: thumb,
+    thumbnailUrl: picked.url || '',
+    thumbnailWidth: picked.width,
+    thumbnailHeight: picked.height,
     publishedAt: new Date(snippet.publishedAt),
     viewCount: parseInt(statistics.viewCount || '0', 10),
     likeCount: parseInt(statistics.likeCount || '0', 10),

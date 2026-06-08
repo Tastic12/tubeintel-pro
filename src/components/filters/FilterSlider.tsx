@@ -40,52 +40,47 @@ export default function FilterSlider({
   tooltip,
 }: FilterSliderProps) {
   return (
-    <div className="mb-3">
-      <div className="flex items-center mb-1">
-        <h3 className="text-sm font-normal">{label}</h3>
+    <div className="mb-5 last:mb-0">
+      <div className="flex items-center mb-2.5">
+        <h3 className="text-sm font-medium text-white/90">{label}</h3>
         {tooltip && (
-          <div className="ml-2 text-gray-400 cursor-help" title={tooltip}>
+          <div className="ml-2 text-white/40 cursor-help" title={tooltip}>
             <FaInfoCircle size={12} />
           </div>
         )}
       </div>
-      
-      <div className="mb-1">
-        <DualSlider
-          min={min}
-          max={max}
-          step={step}
-          minValue={minValue}
-          maxValue={maxValue}
-          onMinChange={onMinChange}
-          onMaxChange={onMaxChange}
-          minLabel={minLabel}
-          maxLabel={maxLabel}
-          className="search-filter-range w-full"
+
+      <div className="flex items-center justify-center gap-3 mb-3">
+        <input
+          type="text"
+          value={minDisplay}
+          onChange={(e) => onMinInputChange(e.target.value)}
+          className="w-28 bg-white/5 border border-white/15 px-3 py-1.5 rounded-full text-white text-center text-sm focus:outline-none focus:border-[#4361ee]/60"
+          aria-label={`${label} minimum`}
+        />
+        <span className="text-white/40 text-xs font-medium shrink-0">TO</span>
+        <input
+          type="text"
+          value={maxDisplay}
+          onChange={(e) => onMaxInputChange(e.target.value)}
+          className="w-28 bg-white/5 border border-white/15 px-3 py-1.5 rounded-full text-white text-center text-sm focus:outline-none focus:border-[#4361ee]/60"
+          aria-label={`${label} maximum`}
         />
       </div>
-      
-      <div className="flex justify-between mt-1">
-        <div>
-          <input
-            type="text"
-            value={minDisplay}
-            onChange={(e) => onMinInputChange(e.target.value)}
-            className="w-24 bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-center text-sm"
-          />
-        </div>
-        <div className="flex items-center">
-          <span className="mx-2 text-gray-400 text-xs">TO</span>
-        </div>
-        <div>
-          <input
-            type="text"
-            value={maxDisplay}
-            onChange={(e) => onMaxInputChange(e.target.value)}
-            className="w-24 bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-center text-sm"
-          />
-        </div>
-      </div>
+
+      <DualSlider
+        min={min}
+        max={max}
+        step={step}
+        minValue={minValue}
+        maxValue={maxValue}
+        onMinChange={onMinChange}
+        onMaxChange={onMaxChange}
+        minLabel={minLabel}
+        maxLabel={maxLabel}
+        showLabels={false}
+        className="w-full px-1"
+      />
     </div>
   );
 }

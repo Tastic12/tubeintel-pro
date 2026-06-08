@@ -5,9 +5,14 @@ import { Channel, Competitor, Video } from '@/types';
 import { channelsApi, videosApi } from '@/services/api';
 import { competitorListsApi } from '@/services/api/competitorLists';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
+import { competitorVideosApi } from '@/services/api/competitorVideos';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
+import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
+import { COMPETITOR_VIDEOS_PER_CHANNEL } from '@/lib/competitor-video-constants';
 import { DASHBOARD_VIDEO_REFRESH_MS } from '@/lib/swr-config';
 import { fetchApi, parseJsonResponse, postAuthedApi } from '@/lib/api-client';
+
+export { COMPETITOR_VIDEOS_PER_CHANNEL };
 
 export const swrKeys = {
   myChannel: 'my-channel',
@@ -154,26 +159,38 @@ function mapTrackedVideoToVideo(v: {
   id: string;
   youtubeId: string;
   channelId?: string | null;
+  channelName?: string | null;
   title: string;
   thumbnailUrl?: string | null;
   publishedAt?: string | Date | null;
   viewCount?: number | null;
   likeCount?: number | null;
   duration?: string | null;
+  description?: string | null;
+  commentCount?: number | null;
+  channelSubscriberCount?: number | null;
+  channelVideoCount?: number | null;
+  channelViewCount?: number | null;
+  channelPublishedAt?: string | null;
 }): Video {
   return {
     id: v.id,
     youtubeId: v.youtubeId,
     channelId: v.channelId || '',
     title: v.title,
-    description: '',
+    description: v.description || '',
     thumbnailUrl: v.thumbnailUrl || '',
     publishedAt: v.publishedAt ? new Date(v.publishedAt) : new Date(),
     viewCount: v.viewCount || 0,
     likeCount: v.likeCount || 0,
-    commentCount: 0,
+    commentCount: v.commentCount ?? 0,
     vph: 0,
     durationIso: v.duration ?? null,
+    channelName: v.channelName ?? null,
+    channelSubscriberCount: v.channelSubscriberCount ?? null,
+    channelVideoCount: v.channelVideoCount ?? null,
+    channelViewCount: v.channelViewCount ?? null,
+    channelPublishedAt: v.channelPublishedAt ? new Date(v.channelPublishedAt) : null,
   };
 }
 
@@ -192,6 +209,7 @@ async function loadCompetitorsInList(listId: string): Promise<Competitor[]> {
         subscriberCount: channelData.subscriberCount,
         videoCount: channelData.videoCount,
         viewCount: channelData.viewCount,
+        publishedAt: channelData.publishedAt ?? null,
       });
     } catch {
       formattedCompetitors.push({
@@ -202,6 +220,7 @@ async function loadCompetitorsInList(listId: string): Promise<Competitor[]> {
         subscriberCount: c.subscriberCount || 0,
         videoCount: c.videoCount || 0,
         viewCount: c.viewCount || 0,
+        publishedAt: null,
       });
     }
   }
@@ -228,25 +247,33 @@ export function useCompetitorsInList(
   };
 }
 
-async function loadCompetitorListVideos(competitors: Competitor[]): Promise<Video[]> {
+async function loadCompetitorListVideos(
+  listId: string,
+  competitors: Competitor[]
+): Promise<Video[]> {
   if (!competitors.length) return [];
 
-  const allVideos: Video[] = [];
-  for (const competitor of competitors) {
-    try {
-      const videos = await secureYoutubeService.getVideosByChannelId(
-        competitor.youtubeId,
-        10
-      );
-      allVideos.push(...videos);
-    } catch {
-      // Skip channels that fail to load
-    }
-  }
+  try {
+    const { videos } = await competitorVideosApi.syncListVideos(listId);
 
-  return allVideos.sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
+    const byChannel = new Map<string, Video[]>();
+    for (const video of videos) {
+      const bucket = byChannel.get(video.channelId) ?? [];
+      bucket.push(video);
+      byChannel.set(video.channelId, bucket);
+    }
+
+    const enriched: Video[] = [];
+    for (const [channelId, channelVideos] of Array.from(byChannel.entries())) {
+      enriched.push(...(await attachSqlOutlierScores(channelVideos, channelId)));
+    }
+
+    return enriched.sort(
+      (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+  } catch {
+    return [];
+  }
 }
 
 export function useCompetitorListVideos(
@@ -257,7 +284,7 @@ export function useCompetitorListVideos(
   const ready = Boolean(listId) && competitors.length > 0;
   const { data, error, mutate, isValidating } = useSWR<Video[]>(
     ready ? swrKeys.competitorListVideos(listId!) : null,
-    () => loadCompetitorListVideos(competitors),
+    () => loadCompetitorListVideos(listId!, competitors),
     config
   );
 
@@ -323,9 +350,91 @@ export function useVideoCollectionsPage(config?: SWRConfiguration) {
   };
 }
 
+async function enrichCollectionVideos(
+  trackedVideos: Awaited<ReturnType<typeof videoCollectionsApi.getVideosInCollection>>
+): Promise<Video[]> {
+  let videos = trackedVideos.map(mapTrackedVideoToVideo);
+
+  const needsChannelIds = Array.from(
+    new Set(
+      videos
+        .filter((v) => v.channelId && v.channelSubscriberCount == null)
+        .map((v) => v.channelId)
+    )
+  );
+
+  const needsVideoIds = trackedVideos
+    .filter((t) => t.description == null || t.commentCount == null)
+    .map((t) => t.youtubeId);
+
+  const channelById = new Map<string, Channel>();
+  for (const channelId of needsChannelIds) {
+    try {
+      channelById.set(channelId, await secureYoutubeService.getChannelById(channelId));
+    } catch {
+      // Skip channels that fail to load
+    }
+  }
+
+  let freshVideosById = new Map<string, Video>();
+  if (needsVideoIds.length) {
+    try {
+      const fresh = await secureYoutubeService.getVideosByIds(needsVideoIds);
+      freshVideosById = new Map(fresh.map((v) => [v.youtubeId, v]));
+    } catch {
+      // Continue with stored snapshots
+    }
+  }
+
+  videos = videos.map((video) => {
+    const channel = video.channelId ? channelById.get(video.channelId) : undefined;
+    const fresh = freshVideosById.get(video.youtubeId);
+    const enriched: Video = {
+      ...video,
+      description: video.description || fresh?.description || '',
+      commentCount: fresh?.commentCount ?? video.commentCount ?? 0,
+      channelName: video.channelName || channel?.name || null,
+      channelSubscriberCount:
+        video.channelSubscriberCount ?? channel?.subscriberCount ?? null,
+      channelVideoCount: video.channelVideoCount ?? channel?.videoCount ?? null,
+      channelViewCount: video.channelViewCount ?? channel?.viewCount ?? null,
+      channelPublishedAt:
+        video.channelPublishedAt ?? channel?.publishedAt ?? null,
+    };
+
+    const shouldPersist =
+      channel &&
+      video.channelSubscriberCount == null &&
+      video.id;
+
+    if (shouldPersist) {
+      void videoCollectionsApi.updateVideoFilterSnapshot(video.id, {
+        description: enriched.description || null,
+        commentCount: enriched.commentCount,
+        channelName: enriched.channelName,
+        channelSubscriberCount: enriched.channelSubscriberCount,
+        channelVideoCount: enriched.channelVideoCount,
+        channelViewCount: enriched.channelViewCount,
+        channelPublishedAt: enriched.channelPublishedAt
+          ? enriched.channelPublishedAt.toISOString()
+          : null,
+      });
+    } else if (fresh && (trackedVideos.find((t) => t.id === video.id)?.commentCount == null)) {
+      void videoCollectionsApi.updateVideoFilterSnapshot(video.id, {
+        description: enriched.description || null,
+        commentCount: enriched.commentCount,
+      });
+    }
+
+    return enriched;
+  });
+
+  return videos;
+}
+
 async function loadCollectionVideos(collectionId: string): Promise<Video[]> {
   const trackedVideos = await videoCollectionsApi.getVideosInCollection(collectionId);
-  return trackedVideos.map(mapTrackedVideoToVideo);
+  return enrichCollectionVideos(trackedVideos);
 }
 
 export function useCollectionVideos(

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { 
   FilterSlider, 
@@ -134,25 +134,23 @@ export default function SearchFilters({
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersState>(DEFAULT_ADVANCED_FILTERS);
 
-  // Reset all filters when opening the modal
-  useEffect(() => {
-    if (isOpen) {
-      setTimeRange(null);
-      setStartDate('2005-02-13');
-      setEndDate(new Date().toISOString().split('T')[0]);
-      setMultiplierMin('0.0x');
-      setMultiplierMax('100.0x+');
-      setViewsMin('0');
-      setViewsMax('1M+');
-      setSubscribersMin('0');
-      setSubscribersMax('1M+');
-      setVideoDurationMin('00:00:00');
-      setVideoDurationMax('07:00:00+');
-      setWhenPosted(false);
-      setAdvancedFilters(DEFAULT_ADVANCED_FILTERS);
-      setIsAdvancedFiltersOpen(false);
-    }
-  }, [isOpen]);
+  const handleReset = () => {
+    setTimeRange(null);
+    setStartDate('2005-02-13');
+    setEndDate(new Date().toISOString().split('T')[0]);
+    setMultiplierMin('0.0x');
+    setMultiplierMax('100.0x+');
+    setViewsMin('0');
+    setViewsMax('1M+');
+    setSubscribersMin('0');
+    setSubscribersMax('1M+');
+    setVideoDurationMin('00:00:00');
+    setVideoDurationMax('07:00:00+');
+    setWhenPosted(false);
+    setAdvancedFilters(DEFAULT_ADVANCED_FILTERS);
+    setIsAdvancedFiltersOpen(false);
+    onReset();
+  };
 
   const handleTimeRangeSelect = (range: TimeRange) => {
     if (timeRange === range) {
@@ -245,25 +243,28 @@ export default function SearchFilters({
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50">
       <div 
-        className="fixed inset-0 bg-black bg-opacity-30" 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
         onClick={onClose}
       />
-      <div className="bg-black rounded-3xl w-[1200px] relative text-white p-5 mx-4 my-4 z-10 max-h-[85vh] overflow-y-auto">
+      <div className="bg-[#0a1628]/95 backdrop-blur-md border border-white/10 rounded-2xl w-full max-w-5xl relative text-white px-6 py-6 mx-4 my-4 z-10 max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Close button */}
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white"
+          className="absolute top-4 right-4 text-white/50 hover:text-white"
           aria-label="Close"
         >
           <FaTimes size={18} />
         </button>
         
         {/* Header */}
-        <h2 className="text-2xl font-normal mb-3">Search filters</h2>
+        <h2 className="text-xl font-semibold mb-1">Search filters</h2>
+        <p className="text-sm text-white/50 mb-4">
+          Filter by views, duration, multiplier, date range, and more.
+        </p>
         
-        <div className="grid grid-cols-2 gap-x-10 gap-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
           {/* LEFT COLUMN - All slider options */}
-          <div>
+          <div className="space-y-1">
             {/* Multiplier */}
             <FilterSlider
               label="Multiplier"
@@ -349,7 +350,7 @@ export default function SearchFilters({
             />
             
             {/* When posted checkbox */}
-            <div className="mb-3">
+            <div className="mt-2 pt-1">
               <label className="checkbox-container flex items-center">
                 <input
                   type="checkbox"
@@ -364,10 +365,10 @@ export default function SearchFilters({
           </div>
           
           {/* RIGHT COLUMN - Time range and calendar */}
-          <div>
+          <div className="lg:pl-2">
             {/* Time range */}
-            <div className="mb-3">
-              <h3 className="text-sm font-normal mb-1">Time range</h3>
+            <div>
+              <h3 className="text-sm font-medium text-white/90 mb-3">Time range</h3>
               
               <TimeRangeSelector
                 selectedRange={timeRange}
@@ -387,24 +388,15 @@ export default function SearchFilters({
             </div>
           </div>
         </div>
-        
-        {/* Apply button */}
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={handleApply}
-            className="bg-red-600 text-white px-4 py-2 rounded-full"
-          >
-            Apply
-          </button>
-        </div>
 
-        {/* Show more options button */}
-        <div className="mt-4 flex justify-center">
+        {/* Show more options */}
+        <div className="mt-6 pt-4 border-t border-white/10 flex justify-center">
           <button
+            type="button"
             onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
-            className="text-red-600 hover:text-red-500"
+            className="text-sm text-[#4361ee] hover:text-blue-300"
           >
-            {isAdvancedFiltersOpen ? 'Show less options' : 'Show more options'}
+            {isAdvancedFiltersOpen ? 'Show fewer options' : 'Show more options'}
           </button>
         </div>
 
@@ -415,6 +407,33 @@ export default function SearchFilters({
             onFiltersChange={handleAdvancedFiltersChange}
           />
         )}
+
+        {/* Actions */}
+        <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap justify-between items-center gap-3">
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-sm text-white/60 hover:text-white"
+          >
+            Reset all
+          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-white/80 hover:text-white border border-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleApply}
+              className="bg-[#4361ee] hover:bg-[#3a56d4] text-white px-5 py-2 rounded-xl font-medium"
+            >
+              Apply filters
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

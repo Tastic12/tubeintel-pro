@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FaYoutube, FaCopy, FaLink, FaQuestionCircle, FaSearch } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { resolveYoutubeChannelInput, tryParseChannelIdLocally } from '@/lib/youtube-channel-input';
 
 interface ChannelPreview {
   id: string;
@@ -127,8 +128,9 @@ export default function OnboardingPage() {
     setChannelSearchQuery('');
     setChannelSearchResults([]);
 
-    if (newId.startsWith('UC') && newId.length === 24) {
-      fetchChannelPreview(newId);
+    const localId = tryParseChannelIdLocally(newId);
+    if (localId) {
+      fetchChannelPreview(localId);
     } else {
       setChannelPreview(null);
     }
@@ -172,13 +174,8 @@ export default function OnboardingPage() {
       return;
     }
     
-    if (!channelId) {
-      setError('Please enter your YouTube channel ID');
-      return;
-    }
-
-    if (!channelId.startsWith('UC') || channelId.length !== 24) {
-      setError('Invalid channel ID format');
+    if (!channelId.trim()) {
+      setError('Please enter your YouTube channel URL, @handle, or channel ID');
       return;
     }
 
@@ -186,10 +183,12 @@ export default function OnboardingPage() {
     setError('');
 
     try {
+      const resolvedChannelId = await resolveYoutubeChannelInput(channelId);
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
-          youtube_channel_id: channelId,
+          youtube_channel_id: resolvedChannelId,
           has_completed_onboarding: true,
           channel_change_cooldown: new Date().toISOString()
         })
@@ -344,7 +343,7 @@ export default function OnboardingPage() {
             {/* Channel ID Input */}
             <div>
               <label htmlFor="channelId" className="block text-gray-700 dark:text-gray-300 mb-2">
-                Or enter YouTube Channel ID directly
+                Or paste channel URL / @handle / ID
               </label>
               <div className="flex gap-2">
                 <input
@@ -353,11 +352,11 @@ export default function OnboardingPage() {
                   value={channelId}
                   onChange={handleChannelIdChange}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="UC..."
+                  placeholder="youtube.com/@yourchannel or UC..."
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Enter your YouTube channel ID (starts with "UC")
+                Paste the URL from your channel page — same low API cost as the channel ID.
               </p>
             </div>
 

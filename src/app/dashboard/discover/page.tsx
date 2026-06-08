@@ -255,7 +255,7 @@ export default function DiscoverPage() {
             <p className="text-xs text-gray-400">
               Showing {visibleVideos.length} trending video
               {visibleVideos.length === 1 ? '' : 's'}
-              {hideShorts ? ' (long-form only — portrait thumbnails hidden)' : ''}
+              {hideShorts ? ' (long-form only — Shorts hidden)' : ''}
               {hideShorts && stats && stats.shorts_in_pool > 0 && (
                 <span className="text-gray-500">
                   {' '}

@@ -29,8 +29,38 @@ interface TrackedVideo {
   viewCount: number | null;
   likeCount: number | null;
   publishedAt: string | null;
+  description: string | null;
+  commentCount: number | null;
+  channelSubscriberCount: number | null;
+  channelVideoCount: number | null;
+  channelViewCount: number | null;
+  channelPublishedAt: string | null;
   created_at: string;
   updated_at: string;
+}
+
+function mapTrackedVideoRow(item: Record<string, unknown>): TrackedVideo {
+  return {
+    id: item.id as string,
+    collection_id: item.collection_id as string,
+    youtubeId: item.youtube_id as string,
+    title: item.title as string,
+    thumbnailUrl: item.thumbnail_url as string | null,
+    channelName: item.channel_name as string | null,
+    channelId: item.channel_id as string | null,
+    duration: item.duration as string | null,
+    viewCount: item.view_count as number | null,
+    likeCount: item.like_count as number | null,
+    publishedAt: item.published_at as string | null,
+    description: (item.description as string | null) ?? null,
+    commentCount: (item.comment_count as number | null) ?? null,
+    channelSubscriberCount: (item.channel_subscriber_count as number | null) ?? null,
+    channelVideoCount: (item.channel_video_count as number | null) ?? null,
+    channelViewCount: (item.channel_view_count as number | null) ?? null,
+    channelPublishedAt: (item.channel_published_at as string | null) ?? null,
+    created_at: item.created_at as string,
+    updated_at: item.updated_at as string,
+  };
 }
 
 export const videoCollectionsApi = {
@@ -194,22 +224,7 @@ export const videoCollectionsApi = {
       throw error;
     }
     
-    // Convert database fields to camelCase for frontend
-    return (data || []).map(item => ({
-      id: item.id as string,
-      collection_id: item.collection_id as string,
-      youtubeId: item.youtube_id as string,
-      title: item.title as string,
-      thumbnailUrl: item.thumbnail_url as string | null,
-      channelName: item.channel_name as string | null,
-      channelId: item.channel_id as string | null,
-      duration: item.duration as string | null,
-      viewCount: item.view_count as number | null,
-      likeCount: item.like_count as number | null,
-      publishedAt: item.published_at as string | null,
-      created_at: item.created_at as string,
-      updated_at: item.updated_at as string
-    }));
+    return (data || []).map((item) => mapTrackedVideoRow(item as Record<string, unknown>));
   },
   
   // Add a video to a collection
@@ -225,6 +240,12 @@ export const videoCollectionsApi = {
       viewCount?: number;
       likeCount?: number;
       publishedAt?: string;
+      description?: string;
+      commentCount?: number;
+      channelSubscriberCount?: number;
+      channelVideoCount?: number;
+      channelViewCount?: number;
+      channelPublishedAt?: string;
     }
   ): Promise<TrackedVideo> => {
     try {
@@ -294,7 +315,16 @@ export const videoCollectionsApi = {
         duration: video.duration || null,
         view_count: typeof video.viewCount === 'number' ? video.viewCount : null,
         like_count: typeof video.likeCount === 'number' ? video.likeCount : null,
-        published_at: video.publishedAt || null
+        published_at: video.publishedAt || null,
+        description: video.description || null,
+        comment_count: typeof video.commentCount === 'number' ? video.commentCount : null,
+        channel_subscriber_count:
+          typeof video.channelSubscriberCount === 'number' ? video.channelSubscriberCount : null,
+        channel_video_count:
+          typeof video.channelVideoCount === 'number' ? video.channelVideoCount : null,
+        channel_view_count:
+          typeof video.channelViewCount === 'number' ? video.channelViewCount : null,
+        channel_published_at: video.channelPublishedAt || null,
       };
       
       console.log('Inserting video data into Supabase:', dataToInsert);
@@ -318,22 +348,7 @@ export const videoCollectionsApi = {
       
       console.log('Video added successfully:', data);
       
-      // Convert database fields to camelCase for frontend
-      return {
-        id: data.id as string,
-        collection_id: data.collection_id as string,
-        youtubeId: data.youtube_id as string,
-        title: data.title as string,
-        thumbnailUrl: data.thumbnail_url as string | null,
-        channelName: data.channel_name as string | null,
-        channelId: data.channel_id as string | null,
-        duration: data.duration as string | null,
-        viewCount: data.view_count as number | null,
-        likeCount: data.like_count as number | null,
-        publishedAt: data.published_at as string | null,
-        created_at: data.created_at as string,
-        updated_at: data.updated_at as string
-      };
+      return mapTrackedVideoRow(data as Record<string, unknown>);
     } catch (error) {
       console.error('Error in addVideoToCollection:', error);
       if (error instanceof Error) {
@@ -343,6 +358,46 @@ export const videoCollectionsApi = {
     }
   },
   
+  updateVideoFilterSnapshot: async (
+    videoId: string,
+    snapshot: {
+      description?: string | null;
+      commentCount?: number | null;
+      channelName?: string | null;
+      channelSubscriberCount?: number | null;
+      channelVideoCount?: number | null;
+      channelViewCount?: number | null;
+      channelPublishedAt?: string | null;
+    }
+  ): Promise<void> => {
+    const user = await getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const payload: Record<string, unknown> = {};
+    if (snapshot.description !== undefined) payload.description = snapshot.description;
+    if (snapshot.commentCount !== undefined) payload.comment_count = snapshot.commentCount;
+    if (snapshot.channelName !== undefined) payload.channel_name = snapshot.channelName;
+    if (snapshot.channelSubscriberCount !== undefined) {
+      payload.channel_subscriber_count = snapshot.channelSubscriberCount;
+    }
+    if (snapshot.channelVideoCount !== undefined) {
+      payload.channel_video_count = snapshot.channelVideoCount;
+    }
+    if (snapshot.channelViewCount !== undefined) {
+      payload.channel_view_count = snapshot.channelViewCount;
+    }
+    if (snapshot.channelPublishedAt !== undefined) {
+      payload.channel_published_at = snapshot.channelPublishedAt;
+    }
+
+    if (!Object.keys(payload).length) return;
+
+    const { error } = await supabase.from('tracked_videos').update(payload).eq('id', videoId);
+    if (error) {
+      console.error('Error updating video filter snapshot:', error);
+    }
+  },
+
   // Remove a video from a collection
   removeVideoFromCollection: async (videoId: string): Promise<void> => {
     const user = await getCurrentUser();

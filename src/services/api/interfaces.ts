@@ -8,6 +8,7 @@ export interface IYouTubeService {
   
   // Video methods
   getVideoById(videoId: string): Promise<Video>;
+  getVideosByIds(videoIds: string[]): Promise<Video[]>;
   getVideosByChannelId(channelId: string, maxResults?: number): Promise<Video[]>;
   getTopVideos(maxResults?: number): Promise<Video[]>;
   searchVideos(query: string, maxResults?: number): Promise<Video[]>;

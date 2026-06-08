@@ -67,9 +67,9 @@ export default function DashboardPage() {
   const { videos: recentVideos, isLoading } = useRecentVideos(100, {
     onUpdated: handleVideosUpdated,
   });
-  const { hideShorts } = useShortsPreference();
+  const { hideShorts, mounted } = useShortsPreference();
 
-  const videosForDisplay = filterVideosByShortsPreference(recentVideos, hideShorts);
+  const videosForDisplay = filterVideosByShortsPreference(recentVideos, mounted ? hideShorts : true);
   const topVideosForDisplay = getTopPerformingVideos(videosForDisplay, 4);
 
   // Calculate trends with historical data if available

@@ -1,4 +1,4 @@
-/* Styles for the dual range slider */
+/* Dual range slider — filter modal */
 .search-filter-range {
   -webkit-appearance: none;
   appearance: none;
@@ -9,12 +9,11 @@
   pointer-events: none;
 }
 
-/* Track style */
 .search-filter-range::-webkit-slider-runnable-track {
   width: 100%;
   height: 5px;
   cursor: pointer;
-  background: transparent; /* Make track transparent */
+  background: transparent;
   border-radius: 5px;
 }
 
@@ -22,50 +21,57 @@
   width: 100%;
   height: 5px;
   cursor: pointer;
-  background: transparent; /* Make track transparent */
+  background: transparent;
   border-radius: 5px;
 }
 
-/* Thumb style */
 .search-filter-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
-  background: #e11d48; /* Red-600 from Tailwind */
+  width: 18px;
+  height: 18px;
+  background: #4361ee;
   border-radius: 50%;
   cursor: pointer;
-  margin-top: -5.5px;
+  margin-top: -6px;
   pointer-events: auto;
-  transition: background 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .search-filter-range::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  background: #e11d48; /* Red-600 from Tailwind */
+  width: 18px;
+  height: 18px;
+  background: #4361ee;
   border-radius: 50%;
   cursor: pointer;
   pointer-events: auto;
-  transition: background 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
-/* Left thumb styling */
+.search-filter-range::-webkit-slider-thumb:hover {
+  background: #3a56d4;
+}
+
+.search-filter-range::-moz-range-thumb:hover {
+  background: #3a56d4;
+}
+
 .thumb-left::-webkit-slider-thumb {
-  background: #f43f5e; /* Brighter red */
+  background: #4361ee;
 }
 
 .thumb-left::-moz-range-thumb {
-  background: #f43f5e; /* Brighter red */
+  background: #4361ee;
 }
 
-/* Right thumb styling */
 .thumb-right::-webkit-slider-thumb {
-  background: #be123c; /* Darker red */
+  background: #5b7aff;
 }
 
 .thumb-right::-moz-range-thumb {
-  background: #be123c; /* Darker red */
-} 
+  background: #5b7aff;
+}

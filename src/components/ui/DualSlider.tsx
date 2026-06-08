@@ -30,7 +30,6 @@ export default function DualSlider({
   maxLabel,
   showLabels = true,
 }: DualSliderProps) {
-  // Ensure minValue doesn't exceed maxValue
   const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = Number(e.target.value);
     if (newValue <= maxValue) {
@@ -38,7 +37,6 @@ export default function DualSlider({
     }
   };
 
-  // Ensure maxValue doesn't fall below minValue
   const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = Number(e.target.value);
     if (newValue >= minValue) {
@@ -46,16 +44,20 @@ export default function DualSlider({
     }
   };
 
+  const span = max - min || 1;
+  const rangeLeft = ((minValue - min) / span) * 100;
+  const rangeWidth = ((maxValue - minValue) / span) * 100;
+
   return (
     <div className={className}>
-      <div className="relative w-full h-6">
-        {/* Custom track */}
-        <div 
-          className="absolute w-full h-1 bg-zinc-700 top-1/2 transform -translate-y-1/2 rounded" 
-          style={{ zIndex: -10 }}
+      <div className="relative w-full h-8 flex items-center">
+        <div className="absolute inset-x-0 h-1.5 bg-white/10 rounded-full top-1/2 -translate-y-1/2" />
+
+        <div
+          className="absolute h-1.5 bg-[#4361ee]/70 rounded-full top-1/2 -translate-y-1/2 pointer-events-none"
+          style={{ left: `${rangeLeft}%`, width: `${rangeWidth}%` }}
         />
-        
-        {/* Min value slider */}
+
         <input
           type="range"
           min={min}
@@ -65,9 +67,9 @@ export default function DualSlider({
           onChange={handleMinChange}
           className="absolute w-full thumb-left search-filter-range"
           style={{ height: '100%' }}
+          aria-label="Minimum value"
         />
-        
-        {/* Max value slider */}
+
         <input
           type="range"
           min={min}
@@ -77,11 +79,12 @@ export default function DualSlider({
           onChange={handleMaxChange}
           className="absolute w-full thumb-right search-filter-range"
           style={{ height: '100%' }}
+          aria-label="Maximum value"
         />
       </div>
-      
+
       {showLabels && (minLabel || maxLabel) && (
-        <div className="flex justify-between text-xs text-gray-400 mt-1">
+        <div className="flex justify-between text-xs text-white/40 mt-2">
           <span>{minLabel ?? min}</span>
           <span>{maxLabel ?? max}</span>
         </div>

@@ -59,7 +59,7 @@ const SidebarItem = ({
   return (
     <Link 
       href={isFeatureLocked ? '/subscription' : href}
-      className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3 px-3'} py-3 rounded-lg transition-all duration-200 ${
+      className={`flex items-center ${collapsed ? 'justify-center mx-1.5' : 'gap-3 px-3'} py-3 rounded-xl transition-all duration-200 ${
         isActive 
           ? `${theme === 'dark' ? 'bg-[#00264d] text-blue-200' : 'bg-blue-100 text-blue-800'}` 
           : `${theme === 'dark' ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'}`

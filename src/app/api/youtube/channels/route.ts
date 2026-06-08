@@ -21,6 +21,18 @@ export async function GET(request: NextRequest) {
         ? rawUsername.substring(1)
         : rawUsername;
 
+      if (cleanUsername) {
+        const handleResponse = await fetchFromYouTubeApi(
+          'channels',
+          { part, forHandle: cleanUsername },
+          ctx
+        );
+        const handleData = await handleResponse.json();
+        if (handleData.items?.length > 0) {
+          return NextResponse.json(handleData);
+        }
+      }
+
       const searchQueries = [
         cleanUsername,
         `@${cleanUsername}`,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { FaArrowLeft, FaPlus, FaTimes, FaYoutube, FaEllipsisV, FaChartBar, FaDownload, FaFilter, FaChevronDown, FaStar, FaRocket, FaTrophy, FaCheck, FaCalendarAlt, FaEye, FaEyeSlash, FaThLarge, FaSearch, FaExternalLinkAlt, FaPlay, FaBookmark, FaClipboard, FaChartLine, FaListUl, FaTh, FaInfoCircle, FaRegClock, FaLink, FaCrown, FaLock } from 'react-icons/fa';
 import Link from 'next/link';
@@ -11,6 +11,10 @@ import { videoCollectionsApi } from '@/services/api/videoCollections';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference } from '@/lib/video-short';
+import SearchFilters, { type SearchFiltersResult } from '@/components/SearchFilters';
+import VideoListToolbar from '@/components/VideoListToolbar';
+import { applyVideoSearchFilters } from '@/lib/apply-video-filters';
+import { getChannelMetaFromVideo } from '@/lib/video-channel-meta';
 import {
   useCollectionVideos,
   invalidateVideoCollectionsData,
@@ -28,7 +32,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   const searchParams = useSearchParams();
   const collectionName = searchParams.get('name') || 'Video Collection';
   const { plan, isSubscribed } = useSubscription();
-  const { hideShorts } = useShortsPreference();
+  const { hideShorts, mounted } = useShortsPreference();
   const {
     videos,
     isLoading,
@@ -46,6 +50,8 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [videoSearchQuery, setVideoSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'likes' | 'views'>('date');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<SearchFiltersResult | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Free tier limits
@@ -105,7 +111,16 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
       // Get video data from YouTube API
       console.log('Fetching video data for:', videoId);
       const videoData = await secureYoutubeService.getVideoById(videoId);
-      
+
+      let channelData = null;
+      if (videoData.channelId) {
+        try {
+          channelData = await secureYoutubeService.getChannelById(videoData.channelId);
+        } catch {
+          // Channel stats are optional for saving the video
+        }
+      }
+
       console.log('Video data received:', videoData);
 
       // Add to collection in Supabase
@@ -116,12 +131,20 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
           youtubeId: videoData.youtubeId,
           title: videoData.title,
           thumbnailUrl: videoData.thumbnailUrl,
-          channelName: '', // Video type doesn't have channelName, use empty string
+          channelName: channelData?.name || '',
           channelId: videoData.channelId,
           duration: videoData.durationIso ?? '',
           viewCount: videoData.viewCount,
           likeCount: videoData.likeCount,
-          publishedAt: videoData.publishedAt.toISOString() // Convert Date to string
+          publishedAt: videoData.publishedAt.toISOString(),
+          description: videoData.description,
+          commentCount: videoData.commentCount,
+          channelSubscriberCount: channelData?.subscriberCount,
+          channelVideoCount: channelData?.videoCount,
+          channelViewCount: channelData?.viewCount,
+          channelPublishedAt: channelData?.publishedAt
+            ? channelData.publishedAt.toISOString()
+            : undefined,
         }
       );
       
@@ -133,14 +156,21 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
         youtubeId: trackedVideo.youtubeId,
         channelId: trackedVideo.channelId || '',
         title: trackedVideo.title,
-        description: '', // Default empty description
+        description: trackedVideo.description || videoData.description || '',
         thumbnailUrl: trackedVideo.thumbnailUrl || '',
         publishedAt: trackedVideo.publishedAt ? new Date(trackedVideo.publishedAt) : new Date(),
         viewCount: trackedVideo.viewCount || 0,
         likeCount: trackedVideo.likeCount || 0,
-        commentCount: 0,
+        commentCount: trackedVideo.commentCount ?? videoData.commentCount ?? 0,
         vph: 0,
         durationIso: trackedVideo.duration || videoData.durationIso || null,
+        channelName: trackedVideo.channelName,
+        channelSubscriberCount: trackedVideo.channelSubscriberCount,
+        channelVideoCount: trackedVideo.channelVideoCount,
+        channelViewCount: trackedVideo.channelViewCount,
+        channelPublishedAt: trackedVideo.channelPublishedAt
+          ? new Date(trackedVideo.channelPublishedAt)
+          : channelData?.publishedAt ?? null,
       };
       
       void mutateVideos(
@@ -194,20 +224,50 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
     window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
   };
 
-  // Function to get sorted and filtered videos
-  const getSortedAndFilteredVideos = () => {
-    // First filter by search query
-    let filteredVideos = filterVideosByShortsPreference(videos, hideShorts);
+  const handleApplyFilters = (filters: SearchFiltersResult) => {
+    setActiveFilters(filters);
+    setIsFilterOpen(false);
+  };
+
+  const handleFilterPatch = (patch: Partial<SearchFiltersResult>) => {
+    if (!activeFilters) return;
+    handleApplyFilters({
+      ...activeFilters,
+      ...patch,
+      advancedFilters: patch.advancedFilters
+        ? { ...activeFilters.advancedFilters, ...patch.advancedFilters }
+        : activeFilters.advancedFilters,
+    });
+  };
+
+  const resetFilter = () => {
+    setActiveFilters(null);
+    setIsFilterOpen(false);
+  };
+
+  const getChannelForVideo = useCallback(
+    (video: Video) => getChannelMetaFromVideo(video),
+    []
+  );
+
+  const displayVideos = useMemo(() => {
+    let list = applyVideoSearchFilters(videos, activeFilters, {
+      getChannelForVideo,
+      comparisonPool: videos,
+    });
+
     if (videoSearchQuery.trim()) {
       const query = videoSearchQuery.toLowerCase();
-      filteredVideos = filteredVideos.filter(video =>
-        video.title.toLowerCase().includes(query) ||
-        video.description.toLowerCase().includes(query)
+      list = list.filter(
+        (video) =>
+          video.title.toLowerCase().includes(query) ||
+          video.description.toLowerCase().includes(query)
       );
     }
 
-    // Then sort by selected criteria
-    return filteredVideos.sort((a, b) => {
+    list = filterVideosByShortsPreference(list, mounted ? hideShorts : true);
+
+    return [...list].sort((a, b) => {
       switch (sortBy) {
         case 'date':
           return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
@@ -219,12 +279,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
           return 0;
       }
     });
-  };
-
-  // Handle sort change
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSortBy(e.target.value as 'date' | 'likes' | 'views');
-  };
+  }, [videos, activeFilters, getChannelForVideo, videoSearchQuery, hideShorts, mounted, sortBy]);
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -323,72 +378,29 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
           </div>
         </div>
 
-        {/* Search and Controls */}
-        <div className="flex justify-between items-center mb-6">
-          {/* Search Input */}
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search videos..."
-                value={videoSearchQuery}
-                onChange={(e) => setVideoSearchQuery(e.target.value)}
-                className="w-60 bg-white/10 border border-white/20 rounded-xl py-2 pl-10 pr-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
+        <VideoListToolbar
+          searchQuery={videoSearchQuery}
+          onSearchChange={setVideoSearchQuery}
+          searchPlaceholder="Search saved videos…"
+          activeFilters={activeFilters}
+          onOpenFilters={() => setIsFilterOpen(true)}
+          onClearFilters={resetFilter}
+          onRemoveFilterPatch={handleFilterPatch}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          gridColumns={gridColumns}
+          onGridColumnsChange={setGridColumns}
+          gridOptions={[2, 3, 4, 5]}
+          showVideoInfo={showVideoInfo}
+          onToggleVideoInfo={() => setShowVideoInfo(!showVideoInfo)}
+        />
 
-          {/* Grid Controls */}
-          <div className="flex items-center gap-4">
-            {/* Grid Size Control */}
-            <div className="flex items-center gap-2">
-              <span className="text-white/70 text-sm">Grid:</span>
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
-                {[2, 3, 4, 5].map((cols) => (
-                  <button
-                    key={cols}
-                    onClick={() => setGridColumns(cols)}
-                    className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                      gridColumns === cols
-                        ? 'bg-blue-500 text-white'
-                        : 'text-gray-700 dark:text-gray-300 hover:text-white hover:bg-blue-500/20'
-                    }`}
-                  >
-                    {cols}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-white/70 text-sm">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={handleSortChange}
-                className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="date">Date</option>
-                <option value="likes">Likes</option>
-                <option value="views">Views</option>
-              </select>
-            </div>
-
-            {/* Toggle Video Info */}
-            <button
-              onClick={() => setShowVideoInfo(!showVideoInfo)}
-              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm transition-colors"
-            >
-              {showVideoInfo ? <FaEye size={14} /> : <FaEyeSlash size={14} />}
-              <span>Info</span>
-            </button>
-          </div>
-        </div>
+        <SearchFilters
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
+          onApply={handleApplyFilters}
+          onReset={resetFilter}
+        />
 
         {/* Videos Grid */}
         {videos.length === 0 ? (
@@ -399,7 +411,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
               Add your first video by pasting a YouTube URL above
             </p>
           </div>
-        ) : getSortedAndFilteredVideos().length === 0 ? (
+        ) : displayVideos.length === 0 ? (
           <div className="text-center py-12">
             <FaPlay className="mx-auto text-white/30 mb-4" size={48} />
             <h3 className="text-white/70 text-lg mb-2">No videos found</h3>
@@ -407,10 +419,13 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
               No videos match your search criteria
             </p>
             <button
-              onClick={() => setVideoSearchQuery('')}
+              onClick={() => {
+                setVideoSearchQuery('');
+                resetFilter();
+              }}
               className="text-blue-400 hover:text-blue-300 underline"
             >
-              Clear search
+              Clear search & filters
             </button>
           </div>
         ) : (
@@ -418,7 +433,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
             className={`grid gap-4`}
             style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
           >
-            {getSortedAndFilteredVideos().map((video) => (
+            {displayVideos.map((video) => (
               <div
                 key={video.id}
                 className="group relative bg-white/5 rounded-xl overflow-hidden hover:bg-white/10 transition-colors"
@@ -478,7 +493,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
                       
                       {/* VPH with performance level */}
                       {(() => {
-                        const outlierData = calculateOutlierScore(video, getSortedAndFilteredVideos());
+                        const outlierData = calculateOutlierScore(video, displayVideos);
                         const performanceLevel = outlierData.performanceLevel;
                         return (
                           <span className={`text-xs ${
@@ -495,7 +510,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
                       
                       {/* Outlier Score Badge */}
                       {(() => {
-                        const outlierData = calculateOutlierScore(video, getSortedAndFilteredVideos());
+                        const outlierData = calculateOutlierScore(video, displayVideos);
                         const xColor = outlierData.xFactor > 1.2 ? 'bg-blue-200 text-blue-800' : 
                                       outlierData.xFactor < 0.8 ? 'bg-red-200 text-red-800' : 
                                       'bg-gray-200 text-gray-800';
@@ -509,7 +524,7 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
                       
                       {/* Performance Score Badge */}
                       {(() => {
-                        const performanceScore = calculatePerformanceScore(video, getSortedAndFilteredVideos());
+                        const performanceScore = calculatePerformanceScore(video, displayVideos);
                         return (
                           <span className="text-xs font-bold rounded-xl px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 inline-flex items-center">
                             {Math.round(performanceScore)} Score

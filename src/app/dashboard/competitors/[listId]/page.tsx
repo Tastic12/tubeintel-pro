@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { FaArrowLeft, FaPlus, FaTimes, FaYoutube, FaEllipsisV, FaChartBar, FaDownload, FaFilter, FaChevronDown, FaStar, FaRocket, FaTrophy, FaCheck, FaCalendarAlt, FaEye, FaEyeSlash, FaThLarge, FaSearch, FaExternalLinkAlt, FaPlay, FaBookmark, FaClipboard, FaChartLine, FaListUl, FaTh, FaInfoCircle, FaRegClock, FaLink, FaCrown, FaLock } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaTimes, FaYoutube, FaEllipsisV, FaChartBar, FaDownload, FaChevronDown, FaStar, FaRocket, FaTrophy, FaCheck, FaCalendarAlt, FaThLarge, FaSearch, FaExternalLinkAlt, FaPlay, FaBookmark, FaClipboard, FaChartLine, FaListUl, FaTh, FaInfoCircle, FaRegClock, FaLink, FaCrown, FaLock } from 'react-icons/fa';
 import Link from 'next/link';
 import { Competitor, Video } from '@/types';
 import { competitorListsApi } from '@/services/api/competitorLists';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
-import SearchFilters from '@/components/SearchFilters';
+import SearchFilters, { type SearchFiltersResult } from '@/components/SearchFilters';
+import VideoListToolbar from '@/components/VideoListToolbar';
+import { applyVideoSearchFilters } from '@/lib/apply-video-filters';
+import { getChannelMetaFromCompetitor } from '@/lib/video-channel-meta';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useShortsPreference } from '@/lib/preferences';
-import { filterVideosByShortsPreference, isYouTubeShort } from '@/lib/video-short';
+import { filterVideosByShortsPreference } from '@/lib/video-short';
+import { resolveYoutubeChannelInput } from '@/lib/youtube-channel-input';
 import {
   useCompetitorsInList,
   useCompetitorListVideos,
@@ -39,7 +43,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const searchParams = useSearchParams();
   const listName = searchParams.get('name') || 'Competitor List';
   const { plan, isSubscribed, isLoading: subscriptionLoading } = useSubscription();
-  const { hideShorts } = useShortsPreference();
+  const { hideShorts, mounted } = useShortsPreference();
   const {
     competitors,
     isLoading: competitorsLoading,
@@ -94,8 +98,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTimeFrame, setSelectedTimeFrame] = useState<'30d' | '90d' | '180d' | '365d' | '3y' | 'all'>('30d');
-  const [filteredCompetitorVideos, setFilteredCompetitorVideos] = useState<Video[]>([]);
-  const [activeFilters, setActiveFilters] = useState<any>(null);
+  const [activeFilters, setActiveFilters] = useState<SearchFiltersResult | null>(null);
   
   // Video states
   const [similarVideos, setSimilarVideos] = useState<Video[]>([]);
@@ -128,10 +131,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const [totalChannelViewsThreshold, setTotalChannelViewsThreshold] = useState<number>(1000000);
   const [includeKeywords, setIncludeKeywords] = useState<string>("");
   const [excludeKeywords, setExcludeKeywords] = useState<string>("");
-
-  useEffect(() => {
-    setFilteredCompetitorVideos(competitorVideos);
-  }, [competitorVideos]);
 
   useEffect(() => {
     if (
@@ -204,8 +203,8 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const handleAddCompetitor = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newCompetitorId) {
-      setError('Please enter a YouTube channel ID');
+    if (!newCompetitorId.trim()) {
+      setError('Please enter a YouTube channel URL, @handle, or channel ID');
       return;
     }
 
@@ -213,11 +212,24 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
     setIsAdding(true);
     
     try {
+      let resolvedChannelId: string;
+      try {
+        resolvedChannelId = await resolveYoutubeChannelInput(newCompetitorId);
+      } catch (resolveError) {
+        setError(
+          resolveError instanceof Error
+            ? resolveError.message
+            : 'Could not resolve that channel. Check the URL or ID and try again.'
+        );
+        setIsAdding(false);
+        return;
+      }
+
       // First get the channel data from YouTube
       let channelData;
       try {
-        console.log(`Fetching channel data for ${newCompetitorId}...`);
-        channelData = await secureYoutubeService.getChannelById(newCompetitorId);
+        console.log(`Fetching channel data for ${resolvedChannelId}...`);
+        channelData = await secureYoutubeService.getChannelById(resolvedChannelId);
         console.log('Channel data retrieved:', channelData);
         
         // Verify all required fields are present
@@ -342,200 +354,73 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
     setIsFilterOpen(false);
   }
 
-  // Helper functions to parse filter values
-  const parseNumberValue = (value: string): number | null => {
-    if (!value) return null;
-    
-    // Handle "+" suffix
-    if (value.includes('+')) {
-      value = value.replace('+', '');
-    }
-    
-    // Handle K, M, B suffixes
-    if (value.includes('K') || value.includes('k')) {
-      return parseFloat(value.replace(/[Kk]/g, '')) * 1000;
-    } else if (value.includes('M') || value.includes('m')) {
-      return parseFloat(value.replace(/[Mm]/g, '')) * 1000000;
-    } else if (value.includes('B') || value.includes('b')) {
-      return parseFloat(value.replace(/[Bb]/g, '')) * 1000000000;
-    }
-    
-    return parseFloat(value);
-  };
-  
-  const parseDurationValue = (value: string): number | null => {
-    if (!value) return null;
-    
-    // Handle HH:MM:SS format
-    const parts = value.split(':').map(part => parseInt(part));
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-      return parts[0] * 60 + parts[1];
-    }
-    
-    // Handle values with + suffix
-    if (value.includes('+')) {
-      return parseFloat(value.replace(/\+/g, ''));
-    }
-    
-    return parseFloat(value);
-  };
-  
-  const parseMultiplierValue = (value: string): number | null => {
-    if (!value) return null;
-    
-    // Handle multiplier format (e.g., 5.0x)
-    if (value.includes('x')) {
-      return parseFloat(value.replace(/x/g, ''));
-    }
-    
-    // Handle values with + suffix
-    if (value.includes('+')) {
-      return parseFloat(value.replace(/\+/g, ''));
-    }
-    
-    return parseFloat(value);
-  };
-  
-  // Helper function to detect if a video is a YouTube Short
-  const isShort = (video: Video): boolean => isYouTubeShort(video);
+  const getChannelForVideo = useCallback(
+    (video: Video) => {
+      const competitor = competitors.find((c) => c.youtubeId === video.channelId);
+      return competitor ? getChannelMetaFromCompetitor(competitor) : null;
+    },
+    [competitors]
+  );
 
-  // Updated handleApplyFilters function
-  const handleApplyFilters = (filters: any) => {
-    console.log('Applying filters:', filters);
+  const handleApplyFilters = (filters: SearchFiltersResult) => {
     setActiveFilters(filters);
-    
-    // Close the filter modal
     setIsFilterOpen(false);
-    
-    // Filter the videos based on the selected criteria
-    const filtered = competitorVideos.filter(video => {
-      // Filter by content format (Videos vs Shorts)
-      if (filters.contentFormat === 'Videos' && isShort(video)) return false;
-      if (filters.contentFormat === 'Shorts' && !isShort(video)) return false;
-      
-      // Filter by views
-      if (filters.viewsMin) {
-        const minViews = parseNumberValue(filters.viewsMin);
-        if (minViews !== null && video.viewCount < minViews) return false;
-      }
-      
-      if (filters.viewsMax && !filters.viewsMax.includes('+')) {
-        const maxViews = parseNumberValue(filters.viewsMax);
-        if (maxViews !== null && video.viewCount > maxViews) return false;
-      }
-      
-      // Filter by likes (advanced filter)
-      if (filters.advancedFilters.videoLikesMin) {
-        const minLikes = parseNumberValue(filters.advancedFilters.videoLikesMin);
-        if (minLikes !== null && video.likeCount < minLikes) return false;
-      }
-      
-      if (filters.advancedFilters.videoLikesMax && !filters.advancedFilters.videoLikesMax.includes('+')) {
-        const maxLikes = parseNumberValue(filters.advancedFilters.videoLikesMax);
-        if (maxLikes !== null && video.likeCount > maxLikes) return false;
-      }
-      
-      // Filter by comments (advanced filter)
-      if (filters.advancedFilters.videoCommentsMin) {
-        const minComments = parseNumberValue(filters.advancedFilters.videoCommentsMin);
-        if (minComments !== null && video.commentCount < minComments) return false;
-      }
-      
-      if (filters.advancedFilters.videoCommentsMax && !filters.advancedFilters.videoCommentsMax.includes('+')) {
-        const maxComments = parseNumberValue(filters.advancedFilters.videoCommentsMax);
-        if (maxComments !== null && video.commentCount > maxComments) return false;
-      }
-      
-      // Filter by time range (when posted)
-      if (filters.timeRange !== 'All Time') {
-        const videoDate = new Date(video.publishedAt);
-        const now = new Date();
-        let startDate: Date;
-        
-        switch (filters.timeRange) {
-          case '30 Days':
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - 30);
-            if (videoDate < startDate) return false;
-            break;
-          case '90 Days':
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - 90);
-            if (videoDate < startDate) return false;
-            break;
-          case '180 Days':
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - 180);
-            if (videoDate < startDate) return false;
-            break;
-          case '365 Days':
-            startDate = new Date(now);
-            startDate.setDate(now.getDate() - 365);
-            if (videoDate < startDate) return false;
-            break;
-          case '3 Years':
-            startDate = new Date(now);
-            startDate.setFullYear(now.getFullYear() - 3);
-            if (videoDate < startDate) return false;
-            break;
-          case 'Custom':
-            // For custom range, use the startDate and endDate from filters
-            if (filters.startDate && filters.endDate) {
-              const customStartDate = new Date(filters.startDate);
-              const customEndDate = new Date(filters.endDate);
-              if (videoDate < customStartDate || videoDate > customEndDate) return false;
-            }
-            break;
-        }
-      }
-      
-      // Filter by keywords (advanced filter)
-      if (filters.advancedFilters.includeKeywords && filters.advancedFilters.includeKeywords.trim() !== '') {
-        const keywords = filters.advancedFilters.includeKeywords.split(/[\s,]+/).filter(Boolean);
-        if (keywords.length > 0) {
-          const hasKeyword = keywords.some((keyword: string) => 
-            video.title.toLowerCase().includes(keyword.toLowerCase()) || 
-            video.description.toLowerCase().includes(keyword.toLowerCase())
-          );
-          if (!hasKeyword) return false;
-        }
-      }
-      
-      if (filters.advancedFilters.excludeKeywords && filters.advancedFilters.excludeKeywords.trim() !== '') {
-        const keywords = filters.advancedFilters.excludeKeywords.split(/[\s,]+/).filter(Boolean);
-        if (keywords.length > 0) {
-          const hasKeyword = keywords.some((keyword: string) => 
-            video.title.toLowerCase().includes(keyword.toLowerCase()) || 
-            video.description.toLowerCase().includes(keyword.toLowerCase())
-          );
-          if (hasKeyword) return false;
-        }
-      }
-      
-      return true;
-    });
-    
-    // Sort filtered videos by date (newest first)
-    const sortedFiltered = filtered.sort((a, b) => 
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    );
-    
-    console.log(`Filter applied: Videos matching criteria: ${filtered.length} out of ${competitorVideos.length}`);
-    setFilteredCompetitorVideos(sortedFiltered);
   };
-  
-  // Reset filters function
+
+  const handleFilterPatch = (patch: Partial<SearchFiltersResult>) => {
+    if (!activeFilters) return;
+    handleApplyFilters({
+      ...activeFilters,
+      ...patch,
+      advancedFilters: patch.advancedFilters
+        ? { ...activeFilters.advancedFilters, ...patch.advancedFilters }
+        : activeFilters.advancedFilters,
+    });
+  };
+
   const resetFilter = () => {
     setActiveFilters(null);
-    // Sort videos by date (newest first) when resetting filters
-    const sortedVideos = [...competitorVideos].sort((a, b) => 
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    );
-    setFilteredCompetitorVideos(sortedVideos);
     setIsFilterOpen(false);
   };
+
+  const displayVideos = useMemo(() => {
+    let list = applyVideoSearchFilters(competitorVideos, activeFilters, {
+      getChannelForVideo,
+      comparisonPool: competitorVideos,
+    });
+
+    if (videoSearchQuery.trim()) {
+      const query = videoSearchQuery.toLowerCase();
+      list = list.filter(
+        (video) =>
+          video.title.toLowerCase().includes(query) ||
+          video.description.toLowerCase().includes(query)
+      );
+    }
+
+    list = filterVideosByShortsPreference(list, mounted ? hideShorts : true);
+
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'date':
+          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        case 'likes':
+          return b.likeCount - a.likeCount;
+        case 'views':
+          return b.viewCount - a.viewCount;
+        default:
+          return 0;
+      }
+    });
+  }, [
+    competitorVideos,
+    activeFilters,
+    getChannelForVideo,
+    videoSearchQuery,
+    hideShorts,
+    mounted,
+    sortBy,
+  ]);
 
   // Helper function to safely parse input values
   const safeParseInt = (value: string, fallback = 0): number => {
@@ -757,36 +642,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
     setShowVideoContextMenu(true);
   };
 
-  // Update the filteredVideos definition
-  const filteredVideos = activeVideoTab === 'competitors' 
-    ? (videoSearchQuery 
-        ? filteredCompetitorVideos.filter(video => 
-            video.title.toLowerCase().includes(videoSearchQuery.toLowerCase()) || 
-            video.description.toLowerCase().includes(videoSearchQuery.toLowerCase()))
-        : filteredCompetitorVideos)
-    : (videoSearchQuery 
-        ? similarVideos.filter(video => 
-            video.title.toLowerCase().includes(videoSearchQuery.toLowerCase()) || 
-            video.description.toLowerCase().includes(videoSearchQuery.toLowerCase()))
-        : similarVideos);
-      
-  // Removed the channel grouping functionality and renamed to getSortedVideos
-  const getSortedVideos = () => {
-    const list = filterVideosByShortsPreference(filteredVideos, hideShorts);
-    return list.sort((a, b) => {
-      switch (sortBy) {
-        case 'date':
-          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-        case 'likes':
-          return b.likeCount - a.likeCount;
-        case 'views':
-          return b.viewCount - a.viewCount;
-        default:
-          return 0;
-      }
-    });
-  };
-
   // Add a new search function for channels
   const searchChannels = async (query: string) => {
     if (!query || query.length < 3) {
@@ -855,11 +710,6 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
 
   const handleCloseFilters = () => {
     setIsFilterOpen(false);
-  };
-
-  // Add handler for sort change
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSortBy(e.target.value as 'date' | 'likes' | 'views');
   };
 
   if (isLoading) {
@@ -1059,203 +909,21 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
           </button>
         </div>
         
-        {/* Combined Search and Grid Controls */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center flex-col items-start">
-            <div className="flex mb-2">
-              <button 
-                className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 p-2 rounded-xl text-gray-700 dark:text-gray-300 mr-2 relative"
-                onClick={handleOpenFilters}
-              >
-                <FaFilter size={18} />
-                {activeFilters && (
-                  <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {(() => {
-                      let count = 0;
-                      
-                      // Count time range only if it's explicitly selected and not 'All Time'
-                      if (activeFilters.timeRange && activeFilters.timeRange !== 'All Time') {
-                        count++;
-                      }
-                      
-                      // Count basic filters
-                      if (activeFilters.viewsMin !== '0') count++;
-                      if (activeFilters.viewsMax !== '1M+') count++;
-                      if (activeFilters.subscribersMin !== '0') count++;
-                      if (activeFilters.subscribersMax !== '1M+') count++;
-                      if (activeFilters.videoDurationMin !== '00:00:00') count++;
-                      if (activeFilters.videoDurationMax !== '07:00:00+') count++;
-                      if (activeFilters.whenPosted) count++;
-                      
-                      // Count advanced filters
-                      if (activeFilters.advancedFilters) {
-                        const adv = activeFilters.advancedFilters;
-                        if (adv.viewsToSubsRatioMin !== '0.0') count++;
-                        if (adv.viewsToSubsRatioMax !== '50.0+') count++;
-                        if (adv.medianViewsMin !== '0') count++;
-                        if (adv.medianViewsMax !== '10M+') count++;
-                        if (adv.channelTotalViewsMin !== '0') count++;
-                        if (adv.channelTotalViewsMax !== '1B+') count++;
-                        if (adv.channelVideoCountMin !== '0') count++;
-                        if (adv.channelVideoCountMax !== '1k+') count++;
-                        if (adv.videoLikesMin !== '0') count++;
-                        if (adv.videoLikesMax !== '1M+') count++;
-                        if (adv.videoCommentsMin !== '0') count++;
-                        if (adv.videoCommentsMax !== '100K+') count++;
-                        if (adv.engagementRateMin !== '0') count++;
-                        if (adv.engagementRateMax !== '20+') count++;
-                        if (adv.channelAgeMin !== 'Brand new') count++;
-                        if (adv.channelAgeMax !== '20 years ago+') count++;
-                        if (adv.includeChannels) count++;
-                        if (adv.excludeChannels) count++;
-                        if (adv.includeKeywords) count++;
-                        if (adv.excludeKeywords) count++;
-                      }
-                      
-                      return count;
-                    })()}
-                  </span>
-                )}
-              </button>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search channel videos"
-                  value={videoSearchQuery}
-                  onChange={(e) => setVideoSearchQuery(e.target.value)}
-                  className="w-60 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600"
-                />
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-            
-            {/* Active Filters Display */}
-            {activeFilters && (
-              <div className="flex flex-wrap items-center gap-2 mt-2 ml-2">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Active filters:</span>
-                
-                {activeFilters.contentFormat && (
-                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 rounded-full px-2 py-0.5 flex items-center">
-                    {activeFilters.contentFormat}
-                    <button 
-                      onClick={() => {
-                        const newFilters = {...activeFilters, contentFormat: null};
-                        handleApplyFilters(newFilters);
-                      }}
-                      className="ml-1 text-indigo-500 hover:text-indigo-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                
-                {activeFilters.timeRange && activeFilters.timeRange !== 'All Time' && (
-                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 rounded-full px-2 py-0.5 flex items-center">
-                    {activeFilters.timeRange}
-                    <button 
-                      onClick={() => {
-                        const newFilters = {...activeFilters, timeRange: 'All Time'};
-                        handleApplyFilters(newFilters);
-                      }}
-                      className="ml-1 text-indigo-500 hover:text-indigo-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                
-                {activeFilters.viewsMin && activeFilters.viewsMin !== '0' && (
-                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 rounded-full px-2 py-0.5 flex items-center">
-                    Min views: {activeFilters.viewsMin}
-                    <button 
-                      onClick={() => {
-                        const newFilters = {...activeFilters, viewsMin: '0'};
-                        handleApplyFilters(newFilters);
-                      }}
-                      className="ml-1 text-indigo-500 hover:text-indigo-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                
-                {(activeFilters.advancedFilters?.includeKeywords || activeFilters.advancedFilters?.excludeKeywords) && (
-                  <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 rounded-full px-2 py-0.5 flex items-center">
-                    Keyword filters
-                    <button 
-                      onClick={() => {
-                        const newFilters = {
-                          ...activeFilters, 
-                          advancedFilters: {
-                            ...activeFilters.advancedFilters,
-                            includeKeywords: '',
-                            excludeKeywords: ''
-                          }
-                        };
-                        handleApplyFilters(newFilters);
-                      }}
-                      className="ml-1 text-indigo-500 hover:text-indigo-700"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                
-                <button 
-                  onClick={resetFilter}
-                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* Grid Controls */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Videos per row:</span>
-              <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
-                {[1, 2, 3, 4, 5, 6].map((columns) => (
-                  <button 
-                    key={columns}
-                    className={`px-2 py-1 text-sm rounded-md transition-colors ${videoGridColumns === columns ? 'bg-blue-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:text-white hover:bg-blue-500/20'}`}
-                    onClick={() => handleVideoGridColumnsChange(columns)}
-                  >
-                    {columns}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={handleSortChange}
-                className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="date">Date</option>
-                <option value="likes">Likes</option>
-                <option value="views">Views</option>
-              </select>
-            </div>
-            
-            <button 
-              className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm transition-colors"
-              onClick={toggleVideoInfo}
-              title={showVideoInfo ? "Hide video info" : "Show video info"}
-            >
-              {showVideoInfo ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
-              <span className="hidden sm:inline">{showVideoInfo ? "Hide info" : "Show info"}</span>
-            </button>
-          </div>
-        </div>
+        <VideoListToolbar
+          searchQuery={videoSearchQuery}
+          onSearchChange={setVideoSearchQuery}
+          searchPlaceholder="Search channel videos…"
+          activeFilters={activeFilters}
+          onOpenFilters={handleOpenFilters}
+          onClearFilters={resetFilter}
+          onRemoveFilterPatch={handleFilterPatch}
+          sortBy={sortBy}
+          onSortChange={(value) => setSortBy(value)}
+          gridColumns={videoGridColumns}
+          onGridColumnsChange={handleVideoGridColumnsChange}
+          showVideoInfo={showVideoInfo}
+          onToggleVideoInfo={toggleVideoInfo}
+        />
 
         {/* Video Grid */}
         {isVideoLoading ? (
@@ -1263,11 +931,11 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
             <p className="ml-4 text-gray-600 dark:text-gray-400">Loading videos...</p>
           </div>
-        ) : filteredVideos.length > 0 ? (
+        ) : displayVideos.length > 0 ? (
           <div>
             {/* Combined video grid */}
             <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${videoGridColumns}, minmax(0, 1fr))` }}>
-              {getSortedVideos().map((video) => (
+              {displayVideos.map((video) => (
                 <div 
                   key={video.id} 
                   className="bg-white/10 dark:bg-[#00264d]/30 backdrop-blur-sm border border-white/10 dark:border-blue-400/20 rounded-xl shadow-sm overflow-hidden hover:bg-white/15 dark:hover:bg-[#00264d]/40 transition-all duration-200 cursor-pointer group"
@@ -1310,7 +978,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
                         
                         {/* VPH with performance level */}
                         {(() => {
-                          const outlierData = calculateOutlierScore(video, getSortedVideos());
+                          const outlierData = calculateOutlierScore(video, displayVideos);
                           const performanceLevel = outlierData.performanceLevel;
                           return (
                             <span className={`text-xs ${
@@ -1327,7 +995,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
                         
                         {/* Outlier Score Badge */}
                         {(() => {
-                          const outlierData = calculateOutlierScore(video, getSortedVideos());
+                          const outlierData = calculateOutlierScore(video, displayVideos);
                           const xColor = outlierData.xFactor > 1.2 ? 'bg-blue-200 text-blue-800' : 
                                         outlierData.xFactor < 0.8 ? 'bg-red-200 text-red-800' : 
                                         'bg-gray-200 text-gray-800';
@@ -1341,7 +1009,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
                         
                         {/* Performance Score Badge */}
                         {(() => {
-                          const performanceScore = calculatePerformanceScore(video, getSortedVideos());
+                          const performanceScore = calculatePerformanceScore(video, displayVideos);
                           return (
                             <span className="text-xs font-bold rounded-xl px-2 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 inline-flex items-center">
                               {Math.round(performanceScore)} Score
@@ -1358,18 +1026,21 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
         ) : (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {videoSearchQuery 
-                ? "No videos found matching your search." 
+              {videoSearchQuery || activeFilters
+                ? 'No videos match your search or filters.'
                 : competitors.length > 0
-                  ? "No videos found for your tracked competitors."
-                  : "Videos from your tracked competitors will appear here. Add competitors to the Tracked Channels section above."}
+                  ? 'No videos found for your tracked competitors.'
+                  : 'Videos from your tracked competitors will appear here. Add competitors to the Tracked Channels section above.'}
             </p>
-            {videoSearchQuery && (
+            {(videoSearchQuery || activeFilters) && (
               <button
-                onClick={() => setVideoSearchQuery('')}
+                onClick={() => {
+                  setVideoSearchQuery('');
+                  resetFilter();
+                }}
                 className="text-indigo-600 dark:text-indigo-400 underline"
               >
-                Clear search
+                Clear search & filters
               </button>
             )}
           </div>
@@ -1459,7 +1130,7 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
               
               <div className="mb-4">
                 <label htmlFor="youtubeId" className="block text-white/80 text-sm mb-2">
-                  Or enter YouTube Channel ID directly:
+                  Or paste channel URL / @handle / ID:
                 </label>
                 <input 
                   type="text"
@@ -1467,10 +1138,10 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
                   value={newCompetitorId}
                   onChange={handleChannelIdChange}
                   className="w-full bg-white/5 border border-white/10 dark:border-blue-400/30 text-white rounded-xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 backdrop-blur-sm"
-                  placeholder="e.g. UC_x5XG1OV2P6uZZ5FSM9Ttw"
+                  placeholder="e.g. youtube.com/@channelname or UC_x5XG1OV2P6uZZ5FSM9Ttw"
                 />
                 <p className="mt-1 text-sm text-white/60">
-                  Channel ID is in the format 'UC_x5XG1OV2P6uZZ5FSM9Ttw'.
+                  Paste the URL from the channel page — about the same API cost as entering the ID directly.
                 </p>
               </div>
 

@@ -120,6 +120,18 @@ function isRateLimited(result: {
   return result.status === 429 || Boolean(result.rateLimited);
 }
 
+/** Server-side YouTube fetch returning raw JSON (for sync jobs, not HTTP responses). */
+export async function fetchYouTubeApiData(
+  endpoint: string,
+  params: Record<string, string>,
+  context: YouTubeFetchContext = {}
+) {
+  if (!YOUTUBE_API_KEY) {
+    return { ok: false as const, status: 500, error: 'YouTube API key is not configured' };
+  }
+  return callYouTubeApi(endpoint, params, context);
+}
+
 export async function fetchFromYouTubeApi(
   endpoint: string,
   params: Record<string, string>,

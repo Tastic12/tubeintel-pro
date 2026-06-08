@@ -5,6 +5,7 @@ import { Profile } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/supabase';
 import { useMyChannel, invalidateDashboardData } from '@/lib/hooks';
+import { resolveYoutubeChannelInput } from '@/lib/youtube-channel-input';
 
 // Define the search result type
 interface ChannelSearchResult {
@@ -85,77 +86,6 @@ export default function SettingsPage() {
     return `You can change your connected YouTube channel once every 7 days. Your next change will be available on ${cooldownEndTime.toLocaleString()}.`;
   };
 
-  const extractChannelId = async (input: string) => {
-    try {
-      // If it's a direct channel ID (starts with UC and is 24 characters)
-      if (input.startsWith('UC') && input.length === 24) {
-        return input;
-      }
-
-      // If it's a URL, try to parse it
-      try {
-        const urlObj = new URL(input);
-        
-        // Handle different YouTube URL formats
-        if (urlObj.hostname.includes('youtube.com')) {
-          // Format: youtube.com/channel/UC...
-          if (urlObj.pathname.includes('/channel/')) {
-            const parts = urlObj.pathname.split('/');
-            const index = parts.indexOf('channel');
-            if (index !== -1 && index + 1 < parts.length) {
-              const channelId = parts[index + 1];
-              if (channelId.startsWith('UC') && channelId.length === 24) {
-                return channelId;
-              }
-            }
-          }
-          
-          // Format: youtube.com/@username
-          if (urlObj.pathname.startsWith('/@')) {
-            const username = urlObj.pathname.substring(2); // Remove the @ symbol
-            if (username) {
-              const response = await fetch(`/api/youtube/channel?username=${encodeURIComponent(username)}`);
-              if (!response.ok) {
-                throw new Error('Failed to fetch channel ID');
-              }
-              const data = await response.json();
-              return data.channelId;
-            }
-          }
-
-          // Format: youtube.com/c/ChannelName
-          if (urlObj.pathname.startsWith('/c/')) {
-            const customUrl = urlObj.pathname.substring(3); // Remove the c/ prefix
-            if (customUrl) {
-              const response = await fetch(`/api/youtube/channel?customUrl=${encodeURIComponent(customUrl)}`);
-              if (!response.ok) {
-                throw new Error('Failed to fetch channel ID');
-              }
-              const data = await response.json();
-              return data.channelId;
-            }
-          }
-        }
-      } catch (e) {
-        // If it's not a URL, it might be a username
-        if (input.startsWith('@')) {
-          const username = input.substring(1); // Remove the @ symbol
-          const response = await fetch(`/api/youtube/channel?username=${encodeURIComponent(username)}`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch channel ID');
-          }
-          const data = await response.json();
-          return data.channelId;
-        }
-      }
-      
-      throw new Error('Invalid YouTube channel URL or ID');
-    } catch (error) {
-      console.error('Error extracting channel ID:', error);
-      throw error;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!channelId && !searchQuery) {
@@ -179,8 +109,8 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
-      // Extract the channel ID from the input - use channelId directly if already selected from search
-      const extractedChannelId = channelId || await extractChannelId(searchQuery);
+      const rawInput = channelId.trim() || searchQuery.trim();
+      const extractedChannelId = await resolveYoutubeChannelInput(rawInput);
       
       // Get current user
       const user = await getCurrentUser();
@@ -391,13 +321,13 @@ export default function SettingsPage() {
               )}
             </div>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Search for your YouTube channel by name, or enter a channel URL or ID directly.
+              Search by name costs more API quota — pasting a URL or @handle below is cheaper.
             </p>
           </div>
           
           <div className="mb-4">
             <label htmlFor="channelId" className="block text-gray-700 dark:text-gray-300 mb-2">
-              Or enter YouTube Channel URL/ID directly:
+              Or paste channel URL / @handle / ID:
             </label>
             <input
               type="text"

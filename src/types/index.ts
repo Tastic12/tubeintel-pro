@@ -33,6 +33,8 @@ export interface Channel {
   subscriberCount: number;
   videoCount: number;
   viewCount: number;
+  /** When the YouTube channel was created */
+  publishedAt?: Date | null;
 }
 
 // YouTube Video types
@@ -59,6 +61,12 @@ export interface Video {
   outlierScore?: number | null;
   /** Channel median views used for SQL score — tooltip fallback */
   outlierMedianViews?: number | null;
+  /** Snapshot fields for saved videos (Videos tab filters) */
+  channelName?: string | null;
+  channelSubscriberCount?: number | null;
+  channelVideoCount?: number | null;
+  channelViewCount?: number | null;
+  channelPublishedAt?: Date | null;
 }
 
 // Alert types
@@ -81,6 +89,8 @@ export interface Competitor {
   subscriberCount: number;
   videoCount: number;
   viewCount: number;
+  /** When the YouTube channel was created */
+  publishedAt?: Date | null;
 }
 
 // Transcript types

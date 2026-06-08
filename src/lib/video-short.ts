@@ -1,5 +1,10 @@
 import { Video } from '@/types';
-import { classifyAsShort, hasShortsHashtag, isShortDuration } from '@/lib/classify-short';
+import {
+  classifyAsShort,
+  hasShortsHashtag,
+  isShortDuration,
+  parseDurationSecondsFromIso,
+} from '@/lib/classify-short';
 
 export { isShortDuration, classifyAsShort };
 
@@ -12,13 +17,10 @@ export function parseDurationSeconds(durationIso: string | null | undefined): nu
     const seconds = parseInt(durationIso.match(/(\d+)S/)?.[1] ?? '0', 10);
     return hours * 3600 + minutes * 60 + seconds;
   }
-  const minutes = parseInt(durationIso.match(/(\d+)M/)?.[1] ?? '0', 10);
-  const seconds = parseInt(durationIso.match(/(\d+)S/)?.[1] ?? '0', 10);
-  const total = minutes * 60 + seconds;
-  return total > 0 ? total : null;
+  return parseDurationSecondsFromIso(durationIso);
 }
 
-/** Portrait thumbnail, duration under 60s, or #shorts tag when metadata is sparse. */
+/** Duration under 60s, portrait thumbnail, or #shorts tag when metadata is sparse. */
 export function isYouTubeShort(video: Video): boolean {
   if (
     classifyAsShort({
@@ -30,10 +32,11 @@ export function isYouTubeShort(video: Video): boolean {
     return true;
   }
 
+  const hasDuration = parseDurationSeconds(video.durationIso) != null;
   const hasThumbDims =
     (video.thumbnailWidth ?? 0) > 0 && (video.thumbnailHeight ?? 0) > 0;
 
-  if (!hasThumbDims && parseDurationSeconds(video.durationIso) == null) {
+  if (!hasDuration && !hasThumbDims) {
     return hasShortsHashtag(video.title, video.description);
   }
 

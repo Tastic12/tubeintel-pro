@@ -77,6 +77,10 @@ These were discussed but intentionally **not** in the initial ship. Revisit when
 - [ ] **Retry queue** for failed thumbnail URL embeds (expired CDN URLs)
 - [ ] **Rate limits on embed-batch** separate from search (CLIP CPU cost)
 
+### Competitor channel videos (sync — done 2026-06-08)
+- ✅ **Persist + incremental sync** — `tracked_competitor_videos` + `/api/competitors/videos/sync`; playlist-based check (~1 unit/channel); `videos.list` only for **new** uploads; 1h sync cooldown. Migration: `20260608_tracked_competitor_videos.sql`
+- [ ] **Optional stats refresh for last X videos** — re-fetch `view_count` / `like_count` (and optionally `comment_count`) from YouTube for the N most recent **stored** videos per channel on sync or on user action. Configurable X (e.g. 10–25). Cost: ~1 `videos.list` unit per 50 IDs per channel per refresh. Keeps quota low while keeping recent metrics fresh; skip if user only wants “new uploads” mode.
+
 ### Discover / corpus expansion
 - [ ] **Scheduled Tier B niche searches** — e.g. weekly auto-run saved phrases (“true crime UK”) to grow index without manual action
 - [ ] **Saved style watches** — alert when new indexed thumbs match a saved query

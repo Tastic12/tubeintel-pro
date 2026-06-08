@@ -265,11 +265,11 @@ export default function DateRangePicker({
                   <div 
                     key={i}
                     onClick={() => handleDateClick(dateObj.day, dateObj.month, dateObj.year)}
-                    className={`text-center py-0.5 text-xxs cursor-pointer hover:bg-red-600/50 rounded-full
+                    className={`text-center py-0.5 text-xxs cursor-pointer hover:bg-[#4361ee]/50 rounded-full
                       ${!dateObj.isCurrentMonth ? 'text-gray-400' : ''}
-                      ${isStartDate ? 'bg-red-600 font-bold' : ''}
-                      ${isEndDate ? 'bg-red-600 font-bold' : ''}
-                      ${isInRange && !isStartDate && !isEndDate ? 'bg-red-600/50' : ''}
+                      ${isStartDate ? 'bg-[#4361ee] font-bold' : ''}
+                      ${isEndDate ? 'bg-[#4361ee] font-bold' : ''}
+                      ${isInRange && !isStartDate && !isEndDate ? 'bg-[#4361ee]/40' : ''}
                     `}
                     title={`${dateObj.month + 1}/${dateObj.day}/${dateObj.year}`}
                   >

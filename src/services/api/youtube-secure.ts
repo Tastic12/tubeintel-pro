@@ -1,12 +1,16 @@
 import { Video, Channel, VideoMetadata } from '@/types';
 import { IYouTubeService } from './interfaces';
 import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
-import { pickThumbnailFromYoutube } from '@/lib/thumbnail-meta';
+import {
+  pickPortraitClassificationDims,
+  pickThumbnailFromYoutube,
+} from '@/lib/thumbnail-meta';
 
 // Format a YouTube video API response to our app's Video type
 const formatVideo = (item: any): Video => {
   const { id, snippet, statistics = {}, contentDetails } = item;
   const picked = pickThumbnailFromYoutube(snippet?.thumbnails);
+  const portraitDims = pickPortraitClassificationDims(snippet?.thumbnails);
 
   return {
     id: id,
@@ -15,8 +19,8 @@ const formatVideo = (item: any): Video => {
     title: snippet.title,
     description: snippet.description ?? '',
     thumbnailUrl: picked.url || '',
-    thumbnailWidth: picked.width,
-    thumbnailHeight: picked.height,
+    thumbnailWidth: portraitDims?.width ?? picked.width,
+    thumbnailHeight: portraitDims?.height ?? picked.height,
     publishedAt: new Date(snippet.publishedAt),
     viewCount: parseInt(statistics.viewCount || '0', 10),
     likeCount: parseInt(statistics.likeCount || '0', 10),
@@ -52,6 +56,7 @@ const formatChannel = (item: any): Channel => {
     subscriberCount: parseInt(statistics?.subscriberCount || '0', 10) || 0,
     videoCount: parseInt(statistics?.videoCount || '0', 10) || 0,
     viewCount: parseInt(statistics?.viewCount || '0', 10) || 0,
+    publishedAt: snippet?.publishedAt ? new Date(snippet.publishedAt) : null,
   };
 };
 
@@ -157,25 +162,31 @@ export const secureYoutubeService: IYouTubeService = {
   },
   
   // Video functions
-  getVideoById: async (videoId: string): Promise<Video> => {
+  getVideosByIds: async (videoIds: string[]): Promise<Video[]> => {
+    const ids = Array.from(new Set(videoIds.filter(Boolean)));
+    if (!ids.length) return [];
+
     try {
-      const response = await fetch(`/api/youtube/videos?id=${videoId}`);
-      
+      const response = await fetch(`/api/youtube/videos?id=${ids.join(',')}`);
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch video: ${response.statusText}`);
+        throw new Error(`Failed to fetch videos: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
-      if (data.items && data.items.length > 0) {
-        return formatVideo(data.items[0]);
-      }
-      
-      throw new Error('Video not found');
+      if (!data.items?.length) return [];
+
+      return data.items.map(formatVideo);
     } catch (error) {
-      console.error('Error fetching video:', error);
+      console.error('Error fetching videos by ids:', error);
       throw error;
     }
+  },
+
+  getVideoById: async (videoId: string): Promise<Video> => {
+    const videos = await secureYoutubeService.getVideosByIds([videoId]);
+    if (videos.length > 0) return videos[0];
+    throw new Error('Video not found');
   },
   
   getVideosByChannelId: async (channelId: string, maxResults = 10): Promise<Video[]> => {

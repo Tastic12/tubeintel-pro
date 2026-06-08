@@ -105,7 +105,7 @@ function DemoSidebar({
 
         <button
           type="button"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 mt-0.5"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-400 mt-0.5"
           disabled
         >
           <FaBook size={14} />
@@ -129,7 +129,7 @@ function SidebarBtn({
     <button
       type="button"
       onClick={() => onSelect(item.id)}
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors w-full text-left ${
+      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors w-full text-left ${
         active
           ? 'bg-[#00264d] text-blue-200'
           : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'

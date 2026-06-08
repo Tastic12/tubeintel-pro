@@ -63,9 +63,9 @@ const formatNumber = (value: number): string => {
 
 export default function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersProps) {
   return (
-    <div className="mt-4">
-      <h3 className="text-sm font-normal mb-2">Advanced Filters</h3>
-      <div className="grid grid-cols-2 gap-x-10 gap-y-3">
+    <div className="mt-5 pb-2">
+      <h3 className="text-sm font-medium text-white/90 mb-4">Advanced Filters</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-2">
         {/* Views to Subs Ratio */}
         <FilterSlider
           label="Views : Subs Ratio"
@@ -211,49 +211,49 @@ export default function AdvancedFilters({ filters, onFiltersChange }: AdvancedFi
         />
 
         {/* Include Channels */}
-        <div className="mb-3">
-          <label className="text-xs text-gray-300 mb-1 block">Include Channels</label>
+        <div className="mb-5">
+          <label className="text-sm font-medium text-white/90 mb-2 block">Include Channels</label>
           <input
             type="text"
             value={filters.includeChannels}
             onChange={(e) => onFiltersChange({ includeChannels: e.target.value })}
-            className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-sm"
+            className="w-full bg-white/5 border border-white/15 px-3 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-[#4361ee]/60"
             placeholder="Enter channel names"
           />
         </div>
 
         {/* Exclude Channels */}
-        <div className="mb-3">
-          <label className="text-xs text-gray-300 mb-1 block">Exclude Channels</label>
+        <div className="mb-5">
+          <label className="text-sm font-medium text-white/90 mb-2 block">Exclude Channels</label>
           <input
             type="text"
             value={filters.excludeChannels}
             onChange={(e) => onFiltersChange({ excludeChannels: e.target.value })}
-            className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-sm"
+            className="w-full bg-white/5 border border-white/15 px-3 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-[#4361ee]/60"
             placeholder="Enter channel names"
           />
         </div>
 
         {/* Include Keywords */}
-        <div className="mb-3">
-          <label className="text-xs text-gray-300 mb-1 block">Include Keywords</label>
+        <div className="mb-5">
+          <label className="text-sm font-medium text-white/90 mb-2 block">Include Keywords</label>
           <input
             type="text"
             value={filters.includeKeywords}
             onChange={(e) => onFiltersChange({ includeKeywords: e.target.value })}
-            className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-sm"
+            className="w-full bg-white/5 border border-white/15 px-3 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-[#4361ee]/60"
             placeholder="Enter keywords"
           />
         </div>
 
         {/* Exclude Keywords */}
-        <div className="mb-3">
-          <label className="text-xs text-gray-300 mb-1 block">Exclude Keywords</label>
+        <div className="mb-5 last:mb-0">
+          <label className="text-sm font-medium text-white/90 mb-2 block">Exclude Keywords</label>
           <input
             type="text"
             value={filters.excludeKeywords}
             onChange={(e) => onFiltersChange({ excludeKeywords: e.target.value })}
-            className="w-full bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-white text-sm"
+            className="w-full bg-white/5 border border-white/15 px-3 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-[#4361ee]/60"
             placeholder="Enter keywords"
           />
         </div>

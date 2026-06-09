@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { DEFAULT_DISCOVER_CATEGORY_IDS } from '@/lib/youtube-discover';
-import { getDiscoverUser, unauthorizedDiscoverResponse } from '@/lib/discover-auth';
+import { requireDiscoverProUser } from '@/lib/discover-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const user = await getDiscoverUser(request);
-    if (!user) return unauthorizedDiscoverResponse();
+    const auth = await requireDiscoverProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const admin = createAdminClient();
 
@@ -34,8 +35,9 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const user = await getDiscoverUser(request);
-    if (!user) return unauthorizedDiscoverResponse();
+    const auth = await requireDiscoverProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const admin = createAdminClient();
     const body = await request.json().catch(() => ({}));

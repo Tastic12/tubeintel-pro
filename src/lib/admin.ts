@@ -30,7 +30,7 @@ export async function logYoutubeApiUsage(
 
 export function isAdminEmail(email: string | undefined | null): boolean {
   if (!email) return false;
-  const raw = process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
+  const raw = process.env.ADMIN_EMAILS || '';
   const allowed = raw
     .split(',')
     .map((e) => e.trim().toLowerCase())

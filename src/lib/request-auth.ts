@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
+import { readAuthTokensFromCookies } from '@/lib/auth-cookies';
 import { checkRateLimit, type LimiterId, type RateLimitResult } from '@/lib/rate-limit';
 import type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
@@ -9,20 +10,20 @@ export type RequestUser = {
   email: string;
 };
 
-function parseAuthCookie(): string | null {
-  const cookieStore = cookies();
-  const authCookie = cookieStore.get('sb-auth-token');
-  if (!authCookie?.value) return null;
-  try {
-    const authData = JSON.parse(authCookie.value);
-    return authData.access_token ?? null;
-  } catch {
-    return null;
+function getAccessTokenFromRequest(): string | null {
+  const { accessToken } = readAuthTokensFromCookies();
+  if (accessToken) return accessToken;
+
+  const authHeader = headers().get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice('Bearer '.length).trim() || null;
   }
+
+  return null;
 }
 
 export async function getRequestUser(): Promise<RequestUser | null> {
-  const accessToken = parseAuthCookie();
+  const accessToken = getAccessTokenFromRequest();
   if (!accessToken) return null;
 
   try {
@@ -42,7 +43,6 @@ function getClientIp(): string {
   return headerStore.get('x-real-ip') || 'unknown';
 }
 
-/** User id when logged in, otherwise a stable anonymous key from IP. */
 export async function getRateLimitKey(): Promise<string> {
   const user = await getRequestUser();
   if (user) return user.id;

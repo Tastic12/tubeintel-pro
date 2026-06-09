@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import { FaPlus, FaEllipsisV, FaPlay, FaGamepad, FaLaptop, FaMusic, FaFilm, FaRegStar, FaChartLine, FaCrown, FaLock, FaThumbtack, FaPencilAlt, FaCopy, FaTrash } from 'react-icons/fa';
 import Link from 'next/link';
 import { useSubscription } from '@/hooks/useSubscription';
+import {
+  FREE_TIER_FOLDER_LIMIT,
+  FREE_TIER_VIDEOS_PER_COLLECTION,
+  canCreateFolder,
+} from '@/lib/subscription-limits';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
 import {
   useVideoCollectionsPage,
@@ -28,9 +33,6 @@ export default function VideosPage() {
   const [error, setError] = useState<string>('');
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Free tier limits
-  const FREE_TIER_COLLECTIONS = 1;
-  const FREE_TIER_VIDEOS_PER_COLLECTION = 10;
 
   const updateVideoCollections = (
     updater: (prev: VideoCollection[]) => VideoCollection[]
@@ -50,14 +52,12 @@ export default function VideosPage() {
   const refreshData = () => mutateVideoCollections();
 
   // Check if user can create a new collection
-  const canCreateCollection = () => {
-    if (isSubscribed) return true;
-    return videoCollections.length < FREE_TIER_COLLECTIONS;
-  };
+  const canCreateCollection = () =>
+    canCreateFolder(videoCollections.length, plan, isSubscribed);
 
   // Show upgrade prompt for collections
   const showCollectionUpgradePrompt = () => {
-    setUpgradeReason(`Free users can create up to ${FREE_TIER_COLLECTIONS} video collection. Upgrade to Pro to create unlimited collections and organize your video research better.`);
+    setUpgradeReason(`Free users can create up to ${FREE_TIER_FOLDER_LIMIT} video collection. Upgrade to Pro to create unlimited collections and organize your video research better.`);
     setShowUpgradeModal(true);
   };
 
@@ -232,7 +232,7 @@ export default function VideosPage() {
           <div className="flex items-center gap-2 text-sm">
             <div className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30">
               <FaCrown size={12} className="inline mr-1" />
-              Free Plan: {videoCollections.length}/{FREE_TIER_COLLECTIONS} video collections
+              Free Plan: {videoCollections.length}/{FREE_TIER_FOLDER_LIMIT} video collections
             </div>
           </div>
         )}
@@ -278,7 +278,7 @@ export default function VideosPage() {
             <p className={`text-sm mt-1 ${canCreateCollection() ? 'text-gray-300' : 'text-gray-500'}`}>
               {canCreateCollection() 
                 ? 'Add a new video collection' 
-                : `Free plan allows ${FREE_TIER_COLLECTIONS} video collection${FREE_TIER_COLLECTIONS === 1 ? '' : 's'}`
+                : `Free plan allows ${FREE_TIER_FOLDER_LIMIT} video collection${FREE_TIER_FOLDER_LIMIT === 1 ? '' : 's'}`
               }
             </p>
             {!canCreateCollection() && (

@@ -1,14 +1,37 @@
 import { supabase } from './supabase';
+import { ensureClientSession } from './auth-session';
+
+const TOUR_COMPLETED_KEY = 'clikstats-tour-completed';
+
+function readLocalTourCompleted(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(TOUR_COMPLETED_KEY) === 'true';
+}
+
+function writeLocalTourCompleted(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TOUR_COMPLETED_KEY, 'true');
+}
+
+function clearLocalTourCompleted(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(TOUR_COMPLETED_KEY);
+}
 
 /**
- * Check if the current user has completed the tour
+ * Check if the current user has completed the tour.
+ * Checks localStorage first (fast), then Supabase profile.
  */
 export async function getTourCompletionStatus(): Promise<boolean> {
+  if (readLocalTourCompleted()) {
+    return true;
+  }
+
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const session = await ensureClientSession();
+    const user = session?.user;
+
     if (!user) {
-      console.log('No authenticated user found');
       return false;
     }
 
@@ -20,28 +43,33 @@ export async function getTourCompletionStatus(): Promise<boolean> {
 
     if (error) {
       console.error('Error fetching tour completion status:', error);
-      // Fallback to localStorage for backward compatibility
-      return localStorage.getItem('clikstats-tour-completed') === 'true';
+      return false;
     }
 
-    return Boolean(profile?.tour_completed);
+    const completed = Boolean(profile?.tour_completed);
+    if (completed) {
+      writeLocalTourCompleted();
+    }
+
+    return completed;
   } catch (error) {
     console.error('Exception checking tour completion status:', error);
-    // Fallback to localStorage for backward compatibility
-    return localStorage.getItem('clikstats-tour-completed') === 'true';
+    return readLocalTourCompleted();
   }
 }
 
 /**
- * Mark the tour as completed for the current user
+ * Mark the tour as completed for the current user.
  */
 export async function markTourAsCompleted(): Promise<boolean> {
+  writeLocalTourCompleted();
+
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const session = await ensureClientSession();
+    const user = session?.user;
+
     if (!user) {
-      console.error('No authenticated user found');
-      return false;
+      return true;
     }
 
     const { error } = await supabase
@@ -51,20 +79,13 @@ export async function markTourAsCompleted(): Promise<boolean> {
 
     if (error) {
       console.error('Error marking tour as completed:', error);
-      // Fallback to localStorage
-      localStorage.setItem('clikstats-tour-completed', 'true');
-      return false;
+      return true;
     }
 
-    console.log('Tour marked as completed in database');
-    // Also set localStorage for immediate UI updates
-    localStorage.setItem('clikstats-tour-completed', 'true');
     return true;
   } catch (error) {
     console.error('Exception marking tour as completed:', error);
-    // Fallback to localStorage
-    localStorage.setItem('clikstats-tour-completed', 'true');
-    return false;
+    return true;
   }
 }
 
@@ -72,12 +93,14 @@ export async function markTourAsCompleted(): Promise<boolean> {
  * Reset tour completion status (useful for testing or admin purposes)
  */
 export async function resetTourCompletion(): Promise<boolean> {
+  clearLocalTourCompleted();
+
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const session = await ensureClientSession();
+    const user = session?.user;
+
     if (!user) {
-      console.error('No authenticated user found');
-      return false;
+      return true;
     }
 
     const { error } = await supabase
@@ -90,12 +113,9 @@ export async function resetTourCompletion(): Promise<boolean> {
       return false;
     }
 
-    console.log('Tour completion status reset');
-    // Also clear localStorage
-    localStorage.removeItem('clikstats-tour-completed');
     return true;
   } catch (error) {
     console.error('Exception resetting tour completion:', error);
     return false;
   }
-} 
+}

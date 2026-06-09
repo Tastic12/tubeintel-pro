@@ -1,6 +1,12 @@
 import { Video, Channel, VideoMetadata } from '@/types';
 import { IYouTubeService } from './interfaces';
 import { attachSqlOutlierScores } from '@/services/metrics/outlier-sync';
+import { ensureAuthReady } from '@/lib/auth-session';
+
+async function authedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  await ensureAuthReady();
+  return fetch(input, { ...init, credentials: 'include' });
+}
 import {
   pickPortraitClassificationDims,
   pickThumbnailFromYoutube,
@@ -65,7 +71,7 @@ export const secureYoutubeService: IYouTubeService = {
   // Test API key to make sure it's working
   testApiKey: async (): Promise<boolean> => {
     try {
-      const response = await fetch('/api/youtube/videos?maxResults=1');
+      const response = await authedFetch('/api/youtube/videos?maxResults=1');
       return response.ok;
     } catch (error) {
       console.error('API key test failed:', error);
@@ -76,7 +82,7 @@ export const secureYoutubeService: IYouTubeService = {
   // Channel functions
   getChannelById: async (channelId: string): Promise<Channel> => {
     try {
-      const response = await fetch(`/api/youtube/channels?id=${channelId}`);
+      const response = await authedFetch(`/api/youtube/channels?id=${channelId}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch channel: ${response.statusText}`);
@@ -97,7 +103,7 @@ export const secureYoutubeService: IYouTubeService = {
   
   getChannelIdByUsername: async (username: string): Promise<string> => {
     try {
-      const response = await fetch(`/api/youtube/channels?username=${username}`);
+      const response = await authedFetch(`/api/youtube/channels?username=${username}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch channel by username: ${response.statusText}`);
@@ -124,7 +130,7 @@ export const secureYoutubeService: IYouTubeService = {
         maxResults: '5'
       });
       
-      const response = await fetch(`/api/youtube/search?${searchParams}`);
+      const response = await authedFetch(`/api/youtube/search?${searchParams}`);
       
       if (!response.ok) {
         throw new Error(`Failed to search channels: ${response.statusText}`);
@@ -142,7 +148,7 @@ export const secureYoutubeService: IYouTubeService = {
         .join(',');
       
       // Get detailed channel information
-      const channelsResponse = await fetch(`/api/youtube/channels?id=${channelIds}`);
+      const channelsResponse = await authedFetch(`/api/youtube/channels?id=${channelIds}`);
       
       if (!channelsResponse.ok) {
         throw new Error(`Failed to fetch channel details: ${channelsResponse.statusText}`);
@@ -167,7 +173,7 @@ export const secureYoutubeService: IYouTubeService = {
     if (!ids.length) return [];
 
     try {
-      const response = await fetch(`/api/youtube/videos?id=${ids.join(',')}`);
+      const response = await authedFetch(`/api/youtube/videos?id=${ids.join(',')}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch videos: ${response.statusText}`);
@@ -191,7 +197,7 @@ export const secureYoutubeService: IYouTubeService = {
   
   getVideosByChannelId: async (channelId: string, maxResults = 10): Promise<Video[]> => {
     try {
-      const response = await fetch(`/api/youtube/videos?channelId=${channelId}&maxResults=${maxResults}`);
+      const response = await authedFetch(`/api/youtube/videos?channelId=${channelId}&maxResults=${maxResults}`);
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -216,7 +222,7 @@ export const secureYoutubeService: IYouTubeService = {
   
   getTopVideos: async (maxResults = 10): Promise<Video[]> => {
     try {
-      const response = await fetch(`/api/youtube/videos?maxResults=${maxResults}`);
+      const response = await authedFetch(`/api/youtube/videos?maxResults=${maxResults}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch top videos: ${response.statusText}`);
@@ -243,7 +249,7 @@ export const secureYoutubeService: IYouTubeService = {
         maxResults: maxResults.toString()
       });
       
-      const searchResponse = await fetch(`/api/youtube/search?${searchParams}`);
+      const searchResponse = await authedFetch(`/api/youtube/search?${searchParams}`);
       
       if (!searchResponse.ok) {
         throw new Error(`Failed to search videos: ${searchResponse.statusText}`);
@@ -261,7 +267,7 @@ export const secureYoutubeService: IYouTubeService = {
         .join(',');
       
       // Get detailed video information
-      const videoResponse = await fetch(`/api/youtube/videos?id=${videoIds}`);
+      const videoResponse = await authedFetch(`/api/youtube/videos?id=${videoIds}`);
       
       if (!videoResponse.ok) {
         throw new Error(`Failed to fetch video details: ${videoResponse.statusText}`);
@@ -283,7 +289,7 @@ export const secureYoutubeService: IYouTubeService = {
   // Metadata functions
   getVideoMetadata: async (videoId: string): Promise<VideoMetadata> => {
     try {
-      const response = await fetch(`/api/youtube/videos?id=${videoId}&part=snippet,contentDetails,status,topicDetails`);
+      const response = await authedFetch(`/api/youtube/videos?id=${videoId}&part=snippet,contentDetails,status,topicDetails`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch video metadata: ${response.statusText}`);

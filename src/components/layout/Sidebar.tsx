@@ -7,7 +7,6 @@ import {
   FaChartLine, 
   FaUsers, 
   FaBars,
-  FaLock,
   FaPlay,
   FaBook,
   FaShieldAlt,
@@ -16,9 +15,10 @@ import {
 } from 'react-icons/fa';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { UpgradeButton } from '@/components/features';
 import { useSubscription } from '@/hooks/useSubscription';
+import { hasProAccess } from '@/lib/subscription-limits';
 import { getTourCompletionStatus, resetTourCompletion } from '@/lib/tour-utils';
 
 // Subscription types
@@ -58,7 +58,7 @@ const SidebarItem = ({
   
   return (
     <Link 
-      href={isFeatureLocked ? '/subscription' : href}
+      href={href}
       className={`flex items-center ${collapsed ? 'justify-center mx-1.5' : 'gap-3 px-3'} py-3 rounded-xl transition-all duration-200 ${
         isActive 
           ? `${theme === 'dark' ? 'bg-[#00264d] text-blue-200' : 'bg-blue-100 text-blue-800'}` 
@@ -72,7 +72,11 @@ const SidebarItem = ({
       {!collapsed && (
         <>
           <span className="text-sm font-medium transition-opacity duration-200 flex-1">{label}</span>
-          {isFeatureLocked && <FaLock size={12} className="text-gray-400" />}
+          {isFeatureLocked && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">
+              Pro
+            </span>
+          )}
         </>
       )}
     </Link>
@@ -103,27 +107,36 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
   const pathname = usePathname();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { plan, isLoading } = useSubscription();
+  const { plan, isSubscribed, isLoading } = useSubscription();
 
-  const isAdmin = useMemo(() => {
-    if (!user?.email) return false;
-    const raw = process.env.NEXT_PUBLIC_ADMIN_EMAILS || '';
-    const allowed = raw
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    return allowed.includes(user.email.toLowerCase());
-  }, [user?.email]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    void (async () => {
+      try {
+        const { ensureAuthReady } = await import('@/lib/auth-session');
+        await ensureAuthReady();
+        const res = await fetch('/api/admin/check', { credentials: 'include' });
+        const data = await res.json();
+        setIsAdmin(Boolean(data?.isAdmin));
+      } catch {
+        setIsAdmin(false);
+      }
+    })();
+  }, [user]);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [tourCompleted, setTourCompleted] = useState<boolean>(false);
   const [tourStatusLoading, setTourStatusLoading] = useState<boolean>(true);
   
-  // Update subscription tier when the plan changes
   useEffect(() => {
     if (!isLoading) {
-      setSubscriptionTier(plan);
+      setSubscriptionTier(hasProAccess(plan, isSubscribed) ? 'pro' : 'free');
     }
-  }, [plan, isLoading]);
+  }, [plan, isSubscribed, isLoading]);
   
   // Check tour completion status
   useEffect(() => {
@@ -257,6 +270,8 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           href="/dashboard/discover"
           isActive={isActive('/dashboard/discover')} 
           collapsed={collapsed}
+          requiredSubscription="pro"
+          currentSubscription={subscriptionTier}
         />
 
         <SidebarItem 
@@ -265,6 +280,8 @@ export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps): JSX
           href="/dashboard/thumbnails"
           isActive={isActive('/dashboard/thumbnails')} 
           collapsed={collapsed}
+          requiredSubscription="pro"
+          currentSubscription={subscriptionTier}
         />
         
         <SidebarItem 

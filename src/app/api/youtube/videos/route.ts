@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchFromYouTubeApi } from '../utils';
+import { fetchFromYouTubeApi, guardYouTubeProxyRequest } from '../utils';
 import { getYouTubeFetchContext } from '@/lib/request-auth';
 import {
   getCachedYouTubeResponse,
@@ -14,6 +14,9 @@ function routeSearchCacheKey(channelId: string, maxResults: string) {
 
 export async function GET(request: NextRequest) {
   try {
+    const blocked = await guardYouTubeProxyRequest();
+    if (blocked) return blocked;
+
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
     const channelId = searchParams.get('channelId');

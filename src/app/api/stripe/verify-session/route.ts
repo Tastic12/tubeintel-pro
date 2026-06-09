@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerStripe } from '@/utils/stripe';
-import { createClient, createAdminClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
-import { PRODUCTS } from '@/utils/stripe';
+import { createAdminClient } from '@/utils/supabase/server';
+import { getRequestUser } from '@/lib/request-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,8 +28,6 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    // Get the session info from Stripe
-    console.log('Retrieving Stripe session:', sessionId.substring(0, 10) + '...');
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     
     if (!session) {
@@ -51,8 +48,6 @@ export async function GET(req: NextRequest) {
     // Get the user ID from the session metadata
     const userId = session.metadata?.userId;
     const planType = session.metadata?.planType;
-    const authMethod = session.metadata?.authMethod || 'unknown';
-    
     if (!userId || !planType) {
       return NextResponse.json(
         { success: false, error: 'Missing user information in session' },
@@ -60,56 +55,19 @@ export async function GET(req: NextRequest) {
       );
     }
     
-    // STRICT AUTHENTICATION: Verify the user is authenticated
-    const supabase = createClient();
-    const { data: { session: authSession }, error: sessionError } = await supabase.auth.getSession();
-    
-    // Default authentication state is unauthenticated
-    let authenticatedUserId = null;
-    let currentAuthMethod = 'none';
-    
-    // Check for session from Supabase client
-    if (authSession && authSession.user) {
-      authenticatedUserId = authSession.user.id;
-      currentAuthMethod = 'supabase_session';
-    } 
-    // Fallback: Try to extract user directly from cookie if Supabase session fails
-    else {
-      const cookieStore = cookies();
-      const authCookie = cookieStore.get('sb-auth-token');
-      
-      if (authCookie) {
-        try {
-          const authData = JSON.parse(authCookie.value);
-          if (authData && authData.user) {
-            authenticatedUserId = authData.user.id;
-            currentAuthMethod = 'cookie_extraction';
-            console.log('User extracted directly from cookie for verification');
-          }
-        } catch (parseError) {
-          console.error('Failed to parse auth cookie:', parseError);
-        }
-      }
-    }
-    
-    // If user is not authenticated with either method, return error and redirect to login
-    if (!authenticatedUserId) {
-      console.log('User not authenticated for subscription verification');
+    const requestUser = await getRequestUser();
+    if (!requestUser) {
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Authentication required',
-          redirectUrl: `/login?redirectTo=${encodeURIComponent(`/subscription/success?session_id=${sessionId}`)}`
+          redirectUrl: `/login?redirectTo=${encodeURIComponent(`/subscription/success?session_id=${sessionId}`)}`,
         },
         { status: 401 }
       );
     }
-    
-    // Check if the authenticated user matches the one from the session metadata
-    if (authenticatedUserId !== userId) {
-      console.log('User ID mismatch: Session belongs to a different user');
-      console.log(`Stripe session user: ${userId.substring(0, 8)}... vs Authenticated user: ${authenticatedUserId.substring(0, 8)}...`);
-      
+
+    if (requestUser.id !== userId) {
       return NextResponse.json(
         { success: false, error: 'User mismatch. This subscription belongs to another account.' },
         { status: 403 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchFromYouTubeApi } from '../utils';
+import { fetchFromYouTubeApi, guardYouTubeProxyRequest } from '../utils';
 import { getYouTubeFetchContext } from '@/lib/request-auth';
+import { requireAuthenticatedUser } from '@/lib/api-security';
 import {
   isYoutubeChannelId,
   tryParseChannelIdLocally,
@@ -66,6 +67,9 @@ async function resolveBySearchSlug(
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuthenticatedUser();
+    if (!auth.ok) return auth.response;
+
     const input = request.nextUrl.searchParams.get('input')?.trim();
     if (!input) {
       return NextResponse.json({ error: 'Missing input parameter' }, { status: 400 });
@@ -75,6 +79,9 @@ export async function GET(request: NextRequest) {
     if (localId) {
       return NextResponse.json({ channelId: localId });
     }
+
+    const blocked = await guardYouTubeProxyRequest();
+    if (blocked) return blocked;
 
     const ctx = await getYouTubeFetchContext('competitors-init');
 

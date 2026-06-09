@@ -6,6 +6,10 @@ import { FaArrowLeft, FaPlus, FaTimes, FaYoutube, FaEllipsisV, FaChartBar, FaDow
 import Link from 'next/link';
 import { Video } from '@/types';
 import { useSubscription } from '@/hooks/useSubscription';
+import {
+  FREE_TIER_VIDEOS_PER_COLLECTION,
+  canAddVideo as canAddVideoToCollection,
+} from '@/lib/subscription-limits';
 import { secureYoutubeService } from '@/services/api/youtube-secure';
 import { videoCollectionsApi } from '@/services/api/videoCollections';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
@@ -54,8 +58,6 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   const [activeFilters, setActiveFilters] = useState<SearchFiltersResult | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Free tier limits
-  const FREE_TIER_VIDEOS_PER_COLLECTION = 10;
 
   // Function to extract YouTube video ID from various URL formats
   const extractYouTubeVideoId = (url: string): string | null => {
@@ -75,10 +77,8 @@ export default function VideoCollectionDetail({ params }: { params: { listId: st
   // Fetch videos for this collection — handled by useCollectionVideos
 
   // Check if user can add more videos
-  const canAddVideo = () => {
-    if (isSubscribed) return true;
-    return videos.length < FREE_TIER_VIDEOS_PER_COLLECTION;
-  };
+  const canAddVideo = () =>
+    canAddVideoToCollection(videos.length, plan, isSubscribed);
 
   // Show upgrade prompt for video limit
   const showVideoUpgradePrompt = () => {

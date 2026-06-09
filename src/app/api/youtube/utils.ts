@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { estimateYouTubeApiUnits, getServiceAdmin, logYoutubeApiUsage } from '@/lib/admin';
+import { requireAuthenticatedUser } from '@/lib/api-security';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
   getCachedYouTubeResponse,
@@ -9,11 +10,28 @@ import type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
 export type { YouTubeFetchContext } from '@/lib/youtube-fetch-context';
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 if (!YOUTUBE_API_KEY) {
-  console.error('YouTube API key is not configured. Please set YOUTUBE_API_KEY in your environment variables.');
+  console.error(
+    'YouTube API key is not configured. Set YOUTUBE_API_KEY (server-only) in environment variables.'
+  );
+}
+
+export function youtubeApiUnavailableResponse() {
+  return NextResponse.json(
+    { error: 'YouTube API is not configured on the server' },
+    { status: 503 }
+  );
+}
+
+/** Require a validated logged-in user before proxying to YouTube. */
+export async function guardYouTubeProxyRequest(): Promise<NextResponse | null> {
+  const auth = await requireAuthenticatedUser();
+  if (!auth.ok) return auth.response;
+  if (!YOUTUBE_API_KEY) return youtubeApiUnavailableResponse();
+  return null;
 }
 
 const CACHE_DURATIONS = {

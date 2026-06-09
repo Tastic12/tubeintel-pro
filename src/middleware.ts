@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { readAccessTokenFromCookieReader } from '@/lib/auth-cookies';
 
 // Routes that require authentication
 const PROTECTED_ROUTES = [
@@ -13,6 +13,12 @@ const PROTECTED_ROUTES = [
 const AUTH_ROUTES = [
   '/login',
   '/signup',
+];
+
+// Debug API routes blocked in production
+const DEBUG_API_ROUTES = [
+  '/api/debug-subscription',
+  '/api/set-pro-subscription',
 ];
 
 // Debug/test routes that should be blocked in production
@@ -35,50 +41,9 @@ const PUBLIC_ROUTES = [
   '/api',
 ];
 
-/**
- * Check if user is authenticated by verifying the auth cookie
- */
-async function isAuthenticated(request: NextRequest): Promise<boolean> {
-  try {
-    // Get the auth token cookie
-    const authCookie = request.cookies.get('sb-auth-token');
-    
-    if (!authCookie?.value) {
-      return false;
-    }
-
-    // Parse the cookie to extract token data
-    try {
-      const authData = JSON.parse(authCookie.value);
-      
-      // Check if we have valid tokens
-      if (!authData.access_token) {
-        return false;
-      }
-
-      // Verify token isn't expired (if expires_at is available)
-      if (authData.expires_at) {
-        const expiresAt = authData.expires_at * 1000; // Convert to milliseconds
-        if (Date.now() >= expiresAt) {
-          // Token is expired, but we might have a refresh token
-          // Let the client handle refresh - consider this temporarily authenticated
-          // The actual API routes will handle token refresh
-          if (authData.refresh_token) {
-            return true;
-          }
-          return false;
-        }
-      }
-
-      return true;
-    } catch {
-      // Cookie exists but couldn't be parsed
-      return false;
-    }
-  } catch (error) {
-    console.error('Middleware auth check error:', error);
-    return false;
-  }
+/** Requires the HttpOnly sb-access-token cookie — not session-active or legacy cookies. */
+function isAuthenticated(request: NextRequest): boolean {
+  return Boolean(readAccessTokenFromCookieReader(request.cookies));
 }
 
 /**
@@ -96,6 +61,12 @@ function matchesRoute(pathname: string, routes: string[]): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction && DEBUG_API_ROUTES.includes(pathname)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   // Skip middleware for static files and API routes (except protected ones)
   if (
     pathname.startsWith('/_next') ||
@@ -108,14 +79,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Block debug routes in production
-  const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction && matchesRoute(pathname, DEBUG_ROUTES)) {
     // Return 404 for debug routes in production
     return NextResponse.rewrite(new URL('/404', request.url));
   }
 
   // Check authentication status
-  const authenticated = await isAuthenticated(request);
+  const authenticated = isAuthenticated(request);
 
   // Handle protected routes
   if (matchesRoute(pathname, PROTECTED_ROUTES)) {

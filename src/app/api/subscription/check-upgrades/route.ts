@@ -1,58 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
+import { getRequestUser } from '@/lib/request-auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // If not authenticated, return error
-    if (!session || !session.user) {
-      return NextResponse.json({ 
-        authenticated: false,
-        hasUpgrades: false,
-        message: 'Not authenticated'
-      }, { status: 401 });
+    const requestUser = await getRequestUser();
+    if (!requestUser) {
+      return NextResponse.json(
+        {
+          authenticated: false,
+          hasUpgrades: false,
+          message: 'Not authenticated',
+        },
+        { status: 401 }
+      );
     }
-    
-    const userId = session.user.id;
-    
-    // Check for recent upgrade events (created in the last 15 minutes)
+
+    const admin = createAdminClient();
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    
-    const { data: events, error } = await supabase
+
+    const { data: events, error } = await admin
       .from('subscription_events')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', requestUser.id)
       .eq('event_type', 'upgrade')
       .gte('created_at', fifteenMinutesAgo)
       .order('created_at', { ascending: false });
-      
+
     if (error) {
-      console.error('Error checking for subscription upgrades:', error);
-      return NextResponse.json({ 
+      return NextResponse.json({
         authenticated: true,
         hasUpgrades: false,
-        error: 'Failed to check for subscription upgrades'
-      }, { status: 500 });
+        error: 'Failed to check for subscription upgrades',
+      });
     }
-    
-    // Return the upgrade events and whether there are any
+
     return NextResponse.json({
       authenticated: true,
-      hasUpgrades: events && events.length > 0,
-      events: events
+      hasUpgrades: Boolean(events?.length),
+      events: events ?? [],
     });
-    
   } catch (error) {
-    console.error('Error in check-upgrades endpoint:', error);
-    return NextResponse.json({ 
-      authenticated: false,
-      hasUpgrades: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json(
+      {
+        authenticated: false,
+        hasUpgrades: false,
+        error: message,
+      },
+      { status: 500 }
+    );
   }
-} 
+}

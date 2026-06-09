@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { runThumbnailEmbedBatch } from '@/lib/thumbnail-embed-service';
-import { getThumbnailUser } from '@/lib/thumbnail-auth';
+import { requireThumbnailProUser } from '@/lib/thumbnail-auth';
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const user = await getThumbnailUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireThumbnailProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const admin = createAdminClient();
     const result = await runThumbnailEmbedBatch(admin, user.id);

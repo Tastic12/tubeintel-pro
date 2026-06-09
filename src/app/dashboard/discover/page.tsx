@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ProPageGate from '@/components/features/ProPageGate';
 import Link from 'next/link';
 import { FaCog, FaSync, FaExternalLinkAlt, FaFire } from 'react-icons/fa';
 import {
@@ -26,6 +27,17 @@ const formatNumber = (num: number): string => {
 };
 
 export default function DiscoverPage() {
+  return (
+    <ProPageGate
+      featureName="Discover"
+      description="Browse trending videos by category and region. Upgrade to Pro to unlock Discover."
+    >
+      <DiscoverPageContent />
+    </ProPageGate>
+  );
+}
+
+function DiscoverPageContent() {
   const { hideShorts, mounted } = useShortsPreference();
   const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
   const [settings, setSettings] = useState<DiscoverSettings>({

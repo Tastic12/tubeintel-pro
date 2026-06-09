@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/request-auth';
+import { assertCompetitorListOwnership } from '@/lib/api-security';
 import { createAdminClient } from '@/utils/supabase/server';
 import {
   loadStoredCompetitorVideos,
@@ -20,6 +21,11 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = createAdminClient();
+    const ownsList = await assertCompetitorListOwnership(admin, user.id, listId);
+    if (!ownsList) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const stored = await loadStoredCompetitorVideos(admin, listId);
 
     return NextResponse.json({

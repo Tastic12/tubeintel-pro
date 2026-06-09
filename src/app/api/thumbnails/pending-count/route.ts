@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
-import { getThumbnailUser } from '@/lib/thumbnail-auth';
+import { requireThumbnailProUser } from '@/lib/thumbnail-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const user = await getThumbnailUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireThumbnailProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const admin = createAdminClient();
     const { data, error } = await admin.rpc('pending_thumbnail_embeddings_count', {

@@ -9,15 +9,16 @@ import {
   normalizeDiscoverCategoryIds,
   normalizeDiscoverRegion,
 } from '@/lib/youtube-discover';
-import { getDiscoverUser, unauthorizedDiscoverResponse } from '@/lib/discover-auth';
+import { requireDiscoverProUser } from '@/lib/discover-auth';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const user = await getDiscoverUser(request);
-    if (!user) return unauthorizedDiscoverResponse();
+    const auth = await requireDiscoverProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const youtubeApiKey = process.env.YOUTUBE_API_KEY;
     if (!youtubeApiKey) {

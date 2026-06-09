@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { normalizeDiscoverCategoryIds, normalizeDiscoverRegion } from '@/lib/youtube-discover';
-import { getDiscoverUser, unauthorizedDiscoverResponse } from '@/lib/discover-auth';
+import { requireDiscoverProUser } from '@/lib/discover-auth';
 import { classifyAsShort } from '@/lib/classify-short';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const user = await getDiscoverUser(request);
-    if (!user) return unauthorizedDiscoverResponse();
+    const auth = await requireDiscoverProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const url = new URL(request.url);
     const categoryFilter = url.searchParams.get('category_id');

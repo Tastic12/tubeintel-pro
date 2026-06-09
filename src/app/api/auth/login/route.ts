@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
-
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
@@ -29,17 +27,6 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    
-    // Log the cookies before and after login
-    const cookieStore = cookies();
-    const beforeCookies = cookieStore.getAll();
-    
-    console.log('Login successful:', {
-      userId: data.user?.id?.substring(0, 8) + '...',
-      email: data.user?.email,
-      session: !!data.session,
-      cookiesBefore: beforeCookies.length
-    });
     
     // Create response
     const response = NextResponse.json({ 

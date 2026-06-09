@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, getServerStripe } from '@/utils/stripe';
 import { headers } from 'next/headers';
-import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
 // Get the appropriate webhook secret based on environment
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         
         if (userId && planType) {
           // Store subscription data in your database
-          const supabase = createClient();
+          const supabase = createAdminClient();
           
           // Check if customer exists
           let customerId = session.customer;
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         const customerId = invoice.customer as string | undefined;
         
         if (subscriptionId) {
-          const supabase = createClient();
+          const supabase = createAdminClient();
           
           // Get subscription details from Stripe
           const subscriptionResponse = await stripeInstance.subscriptions.retrieve(subscriptionId);
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         const customerId = invoice.customer as string | undefined;
         
         if (subscriptionId && customerId) {
-          const supabase = createClient();
+          const supabase = createAdminClient();
           
           // Find user by customer ID
           const { data: userData, error: userError } = await supabase
@@ -142,11 +142,10 @@ export async function POST(req: NextRequest) {
             break;
           }
           
-          // Set subscription status to canceled
           const { error } = await supabase
             .from('user_subscriptions')
             .update({
-              status: 'canceled',
+              status: 'past_due',
               updated_at: new Date().toISOString()
             })
             .eq('user_id', userData.user_id);
@@ -170,7 +169,7 @@ export async function POST(req: NextRequest) {
         }
         
         // Get user by customer ID
-        const supabase = createClient();
+        const supabase = createAdminClient();
         const { data: userData, error: userError } = await supabase
           .from('user_subscriptions')
           .select('user_id, plan_type')
@@ -185,14 +184,7 @@ export async function POST(req: NextRequest) {
         // Determine plan type based on product ID
         let newPlanType: 'free' | 'pro' = 'pro'; // Default to pro for any paid subscription
         
-        // Get the previous plan for upgrade detection
-        const { data: userDetails } = await supabase
-          .from('users')
-          .select('subscription_tier')
-          .eq('id', userData.user_id)
-          .single();
-        
-        const previousPlan = userDetails?.subscription_tier || 'free';
+        const previousPlan = userData.plan_type || 'free';
         
         // Check if this is an upgrade (free -> pro)
         const isUpgrade = previousPlan === 'free' && newPlanType === 'pro';
@@ -246,7 +238,7 @@ export async function POST(req: NextRequest) {
         }
         
         // Get user by customer ID
-        const supabase = createClient();
+        const supabase = createAdminClient();
         const { data: userData, error: userError } = await supabase
           .from('user_subscriptions')
           .select('user_id')

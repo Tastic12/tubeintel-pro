@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
 import { getTourCompletionStatus, markTourAsCompleted } from '@/lib/tour-utils';
 
 interface TourStep {
@@ -63,6 +64,7 @@ interface TourGuideProps {
 }
 
 export default function TourGuide({ onComplete }: TourGuideProps) {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
@@ -70,23 +72,26 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated) return;
+
     const checkTourStatus = async () => {
       try {
         const hasSeenTour = await getTourCompletionStatus();
-        const isFromOnboarding = window.location.href.includes('from=onboarding') || 
-                                sessionStorage.getItem('just-completed-onboarding');
-        
+        const isFromOnboarding =
+          window.location.href.includes('from=onboarding') ||
+          sessionStorage.getItem('just-completed-onboarding') === 'true';
+
         if (isFromOnboarding) {
           sessionStorage.removeItem('just-completed-onboarding');
         }
-        
+
         if (!hasSeenTour || isFromOnboarding) {
           setTimeout(() => {
             setIsActive(true);
           }, 1500);
         }
-      } catch (error) {
-        const hasSeenTourLocal = localStorage.getItem('clikstats-tour-completed');
+      } catch {
+        const hasSeenTourLocal = localStorage.getItem('clikstats-tour-completed') === 'true';
         if (!hasSeenTourLocal) {
           setTimeout(() => {
             setIsActive(true);
@@ -115,7 +120,7 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('restart-tour', handleRestartTour);
     };
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -269,6 +274,12 @@ export default function TourGuide({ onComplete }: TourGuideProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleComplete}
+                className="px-3 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm transition-colors"
+              >
+                Skip
+              </button>
               {currentStep > 0 && (
                 <button
                   onClick={prevStep}

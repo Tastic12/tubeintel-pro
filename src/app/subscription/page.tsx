@@ -23,27 +23,27 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    name: 'Basic Analytics Dashboard',
+    name: 'Dashboard, Channels & Videos',
     included: { free: true, pro: true }
   },
   {
-    name: 'Track up to 5 channels',
+    name: '1 folder with up to 5 channels',
     included: { free: true, pro: true }
   },
   {
-    name: 'Track up to 10 videos',
+    name: '1 folder with up to 5 videos',
     included: { free: true, pro: true }
   },
   {
-    name: 'Basic Insights',
-    included: { free: true, pro: true }
-  },
-  {
-    name: 'Track unlimited channels',
+    name: 'Discover trending videos',
     included: { free: false, pro: true }
   },
   {
-    name: 'Track unlimited videos',
+    name: 'Thumbnail search & analysis',
+    included: { free: false, pro: true }
+  },
+  {
+    name: 'Unlimited folders, channels & videos',
     included: { free: false, pro: true }
   },
   {
@@ -54,12 +54,20 @@ const features: Feature[] = [
 
 const proFeatures = [
   {
+    name: 'Discover',
+    description: 'Browse trending videos by category and region'
+  },
+  {
+    name: 'Thumbnails',
+    description: 'Search and analyze thumbnails across tracked channels'
+  },
+  {
     name: 'Unlimited Channel Tracking',
-    description: 'Track unlimited channels and get detailed analytics'
+    description: 'Create unlimited folders and track unlimited channels'
   },
   {
     name: 'Unlimited Video Collections',
-    description: 'Save and organize unlimited videos for analysis and research'
+    description: 'Create unlimited folders and save unlimited videos'
   },
   {
     name: 'Priority Support',
@@ -105,18 +113,13 @@ export default function SubscriptionPage() {
             // Only check subscription if user is authenticated
             if (authResult.authenticated) {
               try {
-                const subscriptionResponse = await fetch('/api/subscription/check', {
+                const subscriptionResponse = await fetch('/api/subscription/status', {
                   credentials: 'include'
                 });
                 
                 if (subscriptionResponse.ok) {
                   const result = await subscriptionResponse.json();
-                  console.log('Subscription status:', result);
-                  
-                  if (result.success && result.subscription) {
-                    // Update to server-provided data
-                    setCurrentPlan(result.subscription.plan_type || 'free');
-                  }
+                  setCurrentPlan(result.plan || 'free');
                 }
               } catch (subscriptionError) {
                 console.error('Error checking subscription:', subscriptionError);
@@ -322,7 +325,7 @@ export default function SubscriptionPage() {
                     <FaCheck className="text-green-500" />
                   </div>
                   <span className="text-sm dark:text-gray-300">
-                    Track up to 5 channels
+                    1 folder with up to 5 channels
                   </span>
                 </li>
                 <li className="flex items-center gap-3">
@@ -330,15 +333,15 @@ export default function SubscriptionPage() {
                     <FaCheck className="text-green-500" />
                   </div>
                   <span className="text-sm dark:text-gray-300">
-                    Track up to 10 videos
+                    1 folder with up to 5 videos
                   </span>
                 </li>
                 <li className="flex items-center gap-3">
                   <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                    <FaCheck className="text-green-500" />
+                    <FaLock className="text-gray-400" />
                   </div>
                   <span className="text-sm dark:text-gray-300">
-                    Basic Insights
+                    Discover & Thumbnails (Pro)
                   </span>
                 </li>
               </ul>

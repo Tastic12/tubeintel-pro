@@ -480,12 +480,8 @@ export type DiscoverSettings = {
 };
 
 async function getDiscoverAuthHeaders(): Promise<HeadersInit> {
-  const { supabase } = await import('@/lib/supabase');
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-  return { Authorization: `Bearer ${session.access_token}` };
+  const { getAuthHeaders } = await import('@/lib/auth-session');
+  return getAuthHeaders();
 }
 
 export function useDiscoverVideos(categoryId?: number | null, longFormOnly = true) {
@@ -507,7 +503,7 @@ export function useDiscoverVideos(categoryId?: number | null, longFormOnly = tru
           shorts_in_pool: number;
           long_form_in_pool?: number;
         };
-      }>(`/api/discover/videos?${params}`, { headers });
+      }>(`/api/discover/videos?${params}`, { headers, credentials: 'include' });
     }
   );
 
@@ -525,13 +521,14 @@ export function useDiscoverVideos(categoryId?: number | null, longFormOnly = tru
 
 export async function fetchDiscoverSettings(): Promise<DiscoverSettings> {
   const headers = await getDiscoverAuthHeaders();
-  return fetchApi<DiscoverSettings>('/api/discover/settings', { headers });
+  return fetchApi<DiscoverSettings>('/api/discover/settings', { headers, credentials: 'include' });
 }
 
 export async function saveDiscoverSettings(settings: DiscoverSettings) {
   const headers = await getDiscoverAuthHeaders();
   const response = await fetch('/api/discover/settings', {
     method: 'PUT',
+    credentials: 'include',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
@@ -564,12 +561,8 @@ export type ThumbnailSearchResult = {
 };
 
 async function getThumbnailAuthHeaders(): Promise<HeadersInit> {
-  const { supabase } = await import('@/lib/supabase');
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-  return { Authorization: `Bearer ${session.access_token}` };
+  const { getAuthHeaders } = await import('@/lib/auth-session');
+  return getAuthHeaders();
 }
 
 export async function searchThumbnails(query: string, matchCount = 24): Promise<ThumbnailSearchResult[]> {
@@ -601,6 +594,7 @@ export async function searchThumbnailsByImage(
   form.append('match_count', String(matchCount));
   const response = await fetch('/api/thumbnails/search-image', {
     method: 'POST',
+    credentials: 'include',
     headers,
     body: form,
   });

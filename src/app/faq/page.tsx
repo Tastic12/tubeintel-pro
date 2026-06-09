@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FaChevronDown, FaChevronUp, FaCrown, FaRocket, FaDollarSign, FaYoutube, FaCog } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaCrown, FaRocket, FaDollarSign, FaYoutube, FaCog, FaComments } from 'react-icons/fa';
 
 interface FAQItem {
   id: string;
@@ -13,126 +13,137 @@ interface FAQItem {
 }
 
 const faqData: FAQItem[] = [
-  // Upgrade-focused questions (most important)
+  // Upgrade-focused questions
   {
     id: 'why-upgrade',
     question: 'Why should I upgrade from Free to Pro?',
-    answer: 'The Pro tier unlocks the full power of ClikStats with features that serious creators need:\n\n• **Unlimited Channel Tracking** - Monitor as many competitor channels as you want (Free: limited tracking)\n• **Unlimited Video Collections** - Save and analyze unlimited videos for content research\n• **Priority Support** - Faster response times through our Discord support system\n\nPro gives you everything you need to stay ahead of the competition and optimize your content strategy.',
+    answer: `Pro unlocks the tools serious creators use for research and trend-spotting:
+
+• **Discover** — Browse trending videos by category and region
+• **Thumbnails** — Search thumbnails by niche, style, or image across tracked channels
+• **Unlimited Channels** — Create unlimited folders and track unlimited competitor channels (Free: 1 folder, up to 5 channels)
+• **Unlimited Videos** — Create unlimited folders and save unlimited videos for research (Free: 1 folder, up to 5 videos)
+• **Priority Support** — Faster help through our Discord community
+
+The Free tier is great for getting started. Pro removes the limits and opens Discover and Thumbnails.`,
     category: 'upgrade',
     isPro: true
   },
   {
     id: 'free-vs-pro-limits',
-    question: 'What are the limitations of the Free tier?',
-    answer: `The Free tier is perfect for getting started, but has some limitations:
+    question: 'What are the Free vs Pro limits?',
+    answer: `**Free tier includes:**
+• Dashboard — analytics and performance for your connected channel
+• Channels — 1 folder with up to 5 competitor channels
+• Videos — 1 folder with up to 5 saved videos
+• Beginner's Guide
+• Community support via Discord
 
-**Free Tier Includes:**
-• Basic dashboard with essential analytics
-• Limited channel tracking
-• Limited video collections
-• Community support through Discord
-
-**Pro Tier Unlocks:**
-• **Unlimited Channel Tracking** - Monitor as many competitors as you want
-• **Unlimited Video Collections** - Save and analyze unlimited videos
-• **Priority Support** - Faster response times through Discord
-
-Most successful creators upgrade within their first month once they see the value of unlimited tracking and research capabilities.`,
-    category: 'upgrade',
-    isPro: true
-  },
-  {
-    id: 'roi-pro-subscription',
-    question: 'How quickly will Pro pay for itself?',
-    answer: `Pro typically pays for itself within 1-2 optimized videos:
-
-**Real Value:**
-• **Unlimited Competitor Analysis**: Track all your competitors to identify trending opportunities
-• **Enhanced Research**: Unlimited video collections help you study successful content strategies
-• **Time Savings**: Unlimited tracking saves hours of manual research each week
-• **Better Insights**: More data leads to 15-30% improvement in content performance
-
-**Quick Math:**
-• Pro costs $29.99/month
-• Average YouTube RPM: $1-5 per 1,000 views
-• You only need 6,000-30,000 additional views per month to break even
-• Most Pro users see this increase through better content optimization and competitor insights
-
-Plus, the time saved on research and analysis is worth hundreds of dollars in opportunity cost.`,
-    category: 'upgrade',
-    isPro: true
-  },
-  {
-    id: 'upgrade-benefits',
-    question: 'What exactly do I get with Pro?',
-    answer: 'Pro subscribers get the complete ClikStats experience:\n\n• **Unlimited Channel Tracking** - Monitor as many competitor channels as you want\n• **Unlimited Video Collections** - Save and analyze unlimited videos for research\n• **Priority Support** - Faster response times through our Discord support system\n\nEverything you need to dominate your niche and grow faster than your competition.',
+**Pro adds:**
+• **Discover** — trending video browser (category & region filters)
+• **Thumbnails** — thumbnail search and analysis
+• **Unlimited** folders, channels, and saved videos
+• Priority support via Discord`,
     category: 'upgrade',
     isPro: true
   },
 
-  // General Questions
+  // General
   {
     id: 'what-is-clikstats',
     question: 'What is ClikStats?',
-    answer: 'ClikStats is a comprehensive YouTube analytics and competitor research platform designed specifically for content creators. We provide real-time analytics, unlimited competitor tracking, video research tools, and advanced insights to help you grow your channel faster and more strategically.',
+    answer: 'ClikStats is a YouTube analytics and research platform for content creators. Connect your channel to see performance on the Dashboard, track competitors in Channels, save videos for research in Videos, and — with Pro — explore trending content in Discover and search thumbnails in Thumbnails.',
     category: 'general'
   },
   {
     id: 'how-does-it-work',
     question: 'How does ClikStats work?',
-    answer: 'Simply connect your YouTube channel during onboarding, and ClikStats automatically starts tracking your performance metrics. Our dashboard provides comprehensive analytics, and you can add competitor channels to track their strategies. Pro users get unlimited tracking capabilities for both channels and videos.',
+    answer: `After sign-up, connect your YouTube channel during onboarding. ClikStats then pulls public data through YouTube's official API.
+
+From the sidebar you can:
+• **Dashboard** — your channel stats, recent uploads, and outlier scores
+• **Channels** — organize competitor channels into folders and track their videos
+• **Videos** — save individual videos into collections for research
+• **Discover** *(Pro)* — browse trending videos by category and region
+• **Thumbnails** *(Pro)* — search and compare thumbnails across your tracked content`,
     category: 'general'
   },
   {
     id: 'data-safety',
     question: 'Is my YouTube data safe and secure?',
-    answer: 'Absolutely. We use enterprise-grade security measures to protect your data. We only access publicly available YouTube data through official APIs and never store sensitive information. Your channel credentials are encrypted, and we comply with all major data protection regulations.',
+    answer: 'Yes. ClikStats only accesses publicly available YouTube data through official APIs. We store the channel and video IDs you choose to track — not your YouTube login password. Auth and billing data are handled with industry-standard security practices.',
     category: 'general'
   },
 
   // Features
   {
+    id: 'dashboard',
+    question: 'What does the Dashboard show?',
+    answer: 'The Dashboard is your home base for your connected channel. See subscriber and view trends, browse recent uploads, sort by views-per-hour (VPH), and spot outlier videos that are performing above your channel average. You can switch between list and grid views and filter out Shorts if you focus on long-form content.',
+    category: 'features'
+  },
+  {
     id: 'competitor-tracking',
-    question: 'How does competitor tracking work?',
-    answer: 'Add any YouTube channel to your competitor tracking lists and monitor their performance metrics, upload schedules, trending videos, and growth patterns. This helps you identify successful content strategies and stay ahead of trends in your niche. Pro users get unlimited competitor tracking with advanced filtering and analysis.',
+    question: 'How does Channels (competitor tracking) work?',
+    answer: 'Channels lets you create folders (e.g. by niche) and add YouTube channels to each folder. ClikStats syncs their recent uploads so you can compare performance, spot trends, and study what competitors are publishing. Free users get 1 folder with up to 5 channels; Pro users get unlimited folders and channels.',
     category: 'features'
   },
   {
     id: 'video-collections',
     question: 'What are Video Collections?',
-    answer: 'Video Collections let you save and organize videos that interest you for research purposes. Study successful content, analyze what works in your niche, and build a library of inspiration. Free users have limited collections, while Pro users can save unlimited videos with advanced organization features.',
+    answer: 'Videos lets you save individual YouTube videos into folders for content research — study titles, thumbnails, and performance of videos you want to learn from. Free users get 1 folder with up to 5 videos; Pro users get unlimited folders and videos.',
     category: 'features'
+  },
+  {
+    id: 'discover',
+    question: 'What is Discover?',
+    answer: 'Discover is a Pro feature for browsing trending YouTube videos. Filter by category and region, sync the latest trending data, and optionally hide Shorts to focus on long-form content. It is a great way to spot what is taking off in your niche right now.',
+    category: 'features',
+    isPro: true
+  },
+  {
+    id: 'thumbnails',
+    question: 'What is the Thumbnails tool?',
+    answer: `Thumbnails is a Pro feature for thumbnail research. You can:
+
+• **Expand search** — find thumbnails on YouTube by niche and style keywords
+• **Index search** — search across videos from your tracked Channels and Discover trending
+• **Image search** — upload a reference image to find similar thumbnails
+• **Similar thumbnails** — find lookalike thumbnails to a specific video
+
+Use it to study what visual styles are working before you create your next thumbnail.`,
+    category: 'features',
+    isPro: true
   },
 
   // Pricing
   {
     id: 'pricing-plans',
     question: 'What are your pricing plans?',
-    answer: `We offer flexible pricing to match your needs:
+    answer: `**Free** — $0/month
+• Dashboard, Channels & Videos
+• 1 folder with up to 5 channels
+• 1 folder with up to 5 videos
+• Community support via Discord
 
-**Free Tier** - Perfect for beginners
-• Basic analytics dashboard
-• Limited channel tracking
-• Limited video collections
-• Community support through Discord
-
-**Pro Tier - $29.99/month** - For serious creators
-• Everything in Free, plus:
-• **Unlimited Channel Tracking**
-• **Unlimited Video Collections**
-• **Priority Support** through Discord`,
+**Pro** — $29.99/month
+• Everything in Free
+• Discover (trending videos)
+• Thumbnails (search & analysis)
+• Unlimited folders, channels & videos
+• Priority support via Discord`,
     category: 'pricing'
   },
   {
     id: 'free-trial',
-    question: 'Do you offer a free trial for Pro?',
-    answer: 'Yes! You can start with our Free tier to explore the platform and see the value, then upgrade to Pro anytime. We also offer a 7-day money-back guarantee on Pro subscriptions if you\'re not completely satisfied with the unlimited features.',
+    question: 'Is there a free trial for Pro?',
+    answer: 'There is no separate Pro trial — the Free tier lets you use Dashboard, Channels, and Videos at no cost so you can see if ClikStats fits your workflow. Upgrade to Pro anytime from the subscription page when you want Discover, Thumbnails, and unlimited tracking.',
     category: 'pricing'
   },
   {
     id: 'cancel-anytime',
     question: 'Can I cancel my subscription anytime?',
-    answer: 'Absolutely! You can cancel your Pro subscription at any time from your account settings. You\'ll continue to have Pro access (unlimited tracking, priority support) until the end of your current billing period, then automatically switch back to the Free tier.',
+    answer: 'Yes. Cancel Pro from your account billing settings. You keep Pro access (Discover, Thumbnails, unlimited limits) until the end of your current billing period, then your account returns to the Free tier limits automatically.',
     category: 'pricing'
   },
 
@@ -140,45 +151,39 @@ Plus, the time saved on research and analysis is worth hundreds of dollars in op
   {
     id: 'channel-connection',
     question: 'How do I connect my YouTube channel?',
-    answer: 'During onboarding, you can either search for your channel by name or enter your channel ID directly. We use YouTube\'s official API to securely connect and fetch your analytics data. The process takes less than 2 minutes and gives you immediate access to ClikStats\'s features.',
+    answer: 'During onboarding, search for your channel by name or paste your channel ID. ClikStats uses YouTube\'s official API to link your account — no YouTube password required. You can also update your connected channel later in Settings.',
     category: 'technical'
   },
   {
     id: 'data-updates',
     question: 'How often is my data updated?',
-    answer: 'Your analytics data is updated regularly to provide near real-time insights. This includes view counts, subscriber changes, engagement metrics, and performance trends. Pro users get priority processing for faster updates.',
+    answer: 'Dashboard and competitor data refresh when you load pages or trigger a sync. View counts, upload lists, and performance metrics are fetched from YouTube\'s API on demand. Discover trending data can be manually synced from the Discover page to pull the latest results for your chosen region and categories.',
     category: 'technical'
   },
   {
     id: 'multiple-channels',
     question: 'Can I track multiple YouTube channels I own?',
-    answer: 'Currently, each ClikStats account is designed for one primary YouTube channel. However, you can track other channels you own as competitors to compare performance. Pro users get unlimited competitor tracking, so you can monitor all your channels and competitors without restrictions.',
+    answer: 'Each ClikStats account connects one primary channel for the Dashboard. You can add other channels you own — or any competitor — to your Channels folders to compare performance. Pro removes the folder and channel limits so you can track as many as you need.',
     category: 'technical'
   },
   {
     id: 'browser-support',
     question: 'Which browsers are supported?',
-    answer: 'ClikStats works on all modern browsers including Chrome, Firefox, Safari, and Edge. For the best experience, we recommend using the latest version of Chrome or Firefox. Our platform is also mobile-responsive for on-the-go analytics.',
+    answer: 'ClikStats works in modern browsers including Chrome, Firefox, Safari, and Edge. We recommend the latest version of Chrome or Firefox for the best experience. The app is responsive on tablets and phones, though desktop is ideal for research workflows.',
     category: 'technical'
   },
 
   // Support
   {
-    id: 'support-difference',
-    question: 'What\'s the difference between Free and Pro support?',
-    answer: 'Free users can access our Discord community for support and help from other creators. Pro users get priority support through our Discord system with faster response times and dedicated support channels for technical issues and feature questions.',
-    category: 'support'
-  },
-  {
     id: 'how-support',
     question: 'How do I get support?',
-    answer: 'All support is handled through our Discord server. Free users can post in the community channels and get help from other creators. Pro users can create priority support tickets for faster assistance from our team.',
+    answer: 'Join our Discord server for help. Free users can ask questions in the community channels. Pro subscribers get priority support with faster responses for billing, technical issues, and feature questions.',
     category: 'support'
   },
   {
     id: 'priority-support',
     question: 'What is Priority Support?',
-    answer: 'Priority Support is available to Pro subscribers and includes:\n\n• Faster response times to your questions\n• Dedicated support channels in Discord\n• Direct access to our technical team\n• Priority handling of feature requests and bug reports\n\nWhile Free users get community support, Pro users get the attention they need to maximize their success.',
+    answer: 'Priority Support is included with Pro. You get faster response times in Discord and direct help from our team for technical issues, billing questions, and feature requests. Free users still have access to the community — Pro just puts you at the front of the queue.',
     category: 'support',
     isPro: true
   }
@@ -190,7 +195,7 @@ const categories = [
   { id: 'features', name: 'Features', icon: FaRocket, color: 'text-blue-500' },
   { id: 'pricing', name: 'Pricing', icon: FaDollarSign, color: 'text-green-500' },
   { id: 'technical', name: 'Technical', icon: FaCog, color: 'text-purple-500' },
-  { id: 'support', name: 'Support', icon: FaCog, color: 'text-purple-500' }
+  { id: 'support', name: 'Support', icon: FaComments, color: 'text-purple-500' }
 ];
 
 export default function FAQPage() {
@@ -252,7 +257,7 @@ export default function FAQPage() {
             <h2 className="text-2xl font-bold">Ready to Supercharge Your Channel?</h2>
           </div>
           <p className="text-lg mb-4 opacity-90">
-            Join thousands of creators who've upgraded to Pro and unlocked unlimited tracking
+            Unlock Discover, Thumbnails, and unlimited channel &amp; video tracking
           </p>
           <Link 
             href="/subscription" 

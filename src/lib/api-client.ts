@@ -1,5 +1,7 @@
 /** Shared fetch helpers for client-side API calls. */
 
+import { ensureAuthReady } from '@/lib/auth-session';
+
 export class ApiError extends Error {
   status: number;
 
@@ -39,20 +41,16 @@ export async function postAuthedApi<T>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  const { supabase } = await import('@/lib/supabase');
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new ApiError('Not authenticated', 401);
-  }
+  await ensureAuthReady();
+  const { getAuthHeaders } = await import('@/lib/auth-session');
+  const authHeaders = await getAuthHeaders();
 
   const response = await fetch(path, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+      ...authHeaders,
     },
     body: JSON.stringify(body),
   });
@@ -64,20 +62,16 @@ export async function patchAuthedApi<T>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
-  const { supabase } = await import('@/lib/supabase');
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new ApiError('Not authenticated', 401);
-  }
+  await ensureAuthReady();
+  const { getAuthHeaders } = await import('@/lib/auth-session');
+  const authHeaders = await getAuthHeaders();
 
   const response = await fetch(path, {
     method: 'PATCH',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+      ...authHeaders,
     },
     body: JSON.stringify(body),
   });

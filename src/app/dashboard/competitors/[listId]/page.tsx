@@ -13,6 +13,10 @@ import { applyVideoSearchFilters } from '@/lib/apply-video-filters';
 import { getChannelMetaFromCompetitor } from '@/lib/video-channel-meta';
 import { calculateOutlierScore, calculatePerformanceScore } from '@/services/metrics/outliers';
 import { useSubscription } from '@/hooks/useSubscription';
+import {
+  FREE_TIER_CHANNEL_LIMIT,
+  canAddChannel as canAddChannelToFolder,
+} from '@/lib/subscription-limits';
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference } from '@/lib/video-short';
 import { resolveYoutubeChannelInput } from '@/lib/youtube-channel-input';
@@ -68,14 +72,8 @@ export default function CompetitorListDetail({ params }: { params: { listId: str
   const [error, setError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
-  // Free tier limits
-  const FREE_TIER_CHANNEL_LIMIT = 5;
-
-  // Check if user can add more channels
-  const canAddChannel = () => {
-    if (isSubscribed || plan !== 'free') return true;
-    return competitors.length < FREE_TIER_CHANNEL_LIMIT;
-  };
+  const canAddChannel = () =>
+    canAddChannelToFolder(competitors.length, plan, isSubscribed);
 
   // Show upgrade modal for channel limit
   const showChannelUpgradePrompt = () => {

@@ -7,6 +7,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useSubscription } from '@/hooks/useSubscription';
+import {
+  FREE_TIER_FOLDER_LIMIT,
+  FREE_TIER_CHANNEL_LIMIT,
+  canCreateFolder,
+} from '@/lib/subscription-limits';
 import { useCompetitorListsPage, type CompetitorListWithItems } from '@/lib/hooks';
 
 // Interface for competitor lists (UI shape)
@@ -27,15 +32,8 @@ export default function CompetitorsPage() {
   const [upgradeReason, setUpgradeReason] = useState<'folders' | 'channels'>('folders');
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Free tier limits
-  const FREE_TIER_NICHE_FOLDER_LIMIT = 1;
-  const FREE_TIER_CHANNEL_LIMIT = 5;
-
-  // Check if user can create more niche folders
-  const canCreateFolder = () => {
-    if (isSubscribed || plan !== 'free') return true;
-    return competitorLists.length < FREE_TIER_NICHE_FOLDER_LIMIT;
-  };
+  const canCreateNicheFolder = () =>
+    canCreateFolder(competitorLists.length, plan, isSubscribed);
 
   // Show upgrade modal for niche folder limit
   const showFolderUpgradePrompt = () => {
@@ -75,7 +73,7 @@ export default function CompetitorsPage() {
 
   const openModal = (listId?: string) => {
     // Check if creating a new folder and user is on free tier
-    if (listId === undefined && !canCreateFolder()) {
+    if (listId === undefined && !canCreateNicheFolder()) {
       showFolderUpgradePrompt();
       return;
     }
@@ -304,7 +302,7 @@ export default function CompetitorsPage() {
           <div className="flex items-center gap-2 text-sm">
             <div className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30">
               <FaCrown size={12} className="inline mr-1" />
-              Free Plan: {competitorLists.length}/{FREE_TIER_NICHE_FOLDER_LIMIT} niche folders
+              Free Plan: {competitorLists.length}/{FREE_TIER_FOLDER_LIMIT} niche folders
             </div>
           </div>
         )}
@@ -330,7 +328,7 @@ export default function CompetitorsPage() {
           {/* Create new competitor list button - Always first */}
           <div 
             className={`border border-dashed rounded-xl p-5 transition-colors ${
-              canCreateFolder() 
+              canCreateNicheFolder() 
                 ? 'border-gray-300 dark:border-white/20 cursor-pointer hover:bg-white/10 backdrop-blur-sm' 
                 : 'border-gray-500/50 dark:border-gray-600/50 cursor-not-allowed bg-gray-500/10'
             }`}
@@ -340,20 +338,20 @@ export default function CompetitorsPage() {
             }}
           >
             <div className="flex justify-between items-start">
-              <div className={`flex items-center gap-2 ${canCreateFolder() ? 'text-indigo-400' : 'text-gray-500'}`}>
-                {canCreateFolder() ? <FaPlus size={18} /> : <FaLock size={18} />}
+              <div className={`flex items-center gap-2 ${canCreateNicheFolder() ? 'text-indigo-400' : 'text-gray-500'}`}>
+                {canCreateNicheFolder() ? <FaPlus size={18} /> : <FaLock size={18} />}
                 <span className="font-medium">
-                  {canCreateFolder() ? 'Create new competitor list' : 'Folder limit reached'}
+                  {canCreateNicheFolder() ? 'Create new competitor list' : 'Folder limit reached'}
                 </span>
               </div>
             </div>
-            <p className={`text-sm mt-1 ${canCreateFolder() ? 'text-gray-300' : 'text-gray-500'}`}>
-              {canCreateFolder() 
+            <p className={`text-sm mt-1 ${canCreateNicheFolder() ? 'text-gray-300' : 'text-gray-500'}`}>
+              {canCreateNicheFolder() 
                 ? 'Add a new collection' 
-                : `Free plan allows ${FREE_TIER_NICHE_FOLDER_LIMIT} niche folder${FREE_TIER_NICHE_FOLDER_LIMIT === 1 ? '' : 's'}`
+                : `Free plan allows ${FREE_TIER_FOLDER_LIMIT} niche folder${FREE_TIER_FOLDER_LIMIT === 1 ? '' : 's'}`
               }
             </p>
-            {!canCreateFolder() && (
+            {!canCreateNicheFolder() && (
               <button 
                 onClick={(e) => {
                   e.stopPropagation();

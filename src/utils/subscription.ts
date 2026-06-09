@@ -65,28 +65,41 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
  */
 export async function checkSubscription(): Promise<SubscriptionResponse> {
   try {
-    const response = await fetch('/api/check-subscription');
-    
-    if (!response.ok) {
-      // If we get a 401, user is not authenticated
-      if (response.status === 401) {
-        return { 
-          authenticated: false, 
-          subscription: null 
-        };
-      }
-      
-      throw new Error(`Failed to check subscription: ${response.status}`);
+    const { fetchSubscriptionStatus } = await import('@/lib/subscription-status-client');
+    const status = await fetchSubscriptionStatus();
+
+    if (!status.subscription && !status.subscribed) {
+      return {
+        authenticated: true,
+        subscription: {
+          plan_type: 'free',
+          status: 'active',
+          current_period_end: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          is_active: false,
+        },
+      };
     }
-    
-    const result = await response.json();
-    return result as SubscriptionResponse;
+
+    if (!status.subscription) {
+      return { authenticated: true, subscription: null };
+    }
+
+    return {
+      authenticated: true,
+      subscription: {
+        plan_type: status.subscription.planType,
+        status: status.subscription.status as UserSubscription['status'],
+        current_period_end: status.subscription.currentPeriodEnd,
+        created_at: status.subscription.currentPeriodEnd,
+        is_active: status.subscribed,
+      },
+    };
   } catch (error) {
-    console.error('Error checking subscription:', error);
-    return { 
-      authenticated: false, 
+    return {
+      authenticated: false,
       subscription: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Video } from '@/types';
-import { FaTable, FaThLarge, FaChartLine, FaArrowUp, FaArrowDown } from 'react-icons/fa';
+import { FaTable, FaThLarge, FaChartLine, FaArrowUp, FaArrowDown, FaPlay } from 'react-icons/fa';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -584,6 +584,10 @@ interface VideoCardProps {
   allVideos: Video[];
 }
 
+function openVideoOnYouTube(videoId: string) {
+  window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank', 'noopener,noreferrer');
+}
+
 function VideoCard({ video, showVph = false, allVideos }: VideoCardProps) {
   const isHighVph = video.vph > 100;
   
@@ -696,13 +700,28 @@ function VideoGridCard({ video, showVph = false, allVideos }: VideoCardProps) {
   else if (outlierData.xFactor < 0.8) xColor = 'bg-red-200 text-red-800';
   
   return (
-    <div className="bg-white/10 dark:bg-[#00264d]/30 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-white/10 dark:border-blue-400/20">
-      <div className="relative w-full pt-[56.25%]"> {/* 16:9 aspect ratio */}
-        <img 
-          src={video.thumbnailUrl} 
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => openVideoOnYouTube(video.youtubeId)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openVideoOnYouTube(video.youtubeId);
+        }
+      }}
+      className="bg-white/10 dark:bg-[#00264d]/30 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden flex flex-col h-full border border-white/10 dark:border-blue-400/20 hover:bg-white/15 dark:hover:bg-[#00264d]/40 transition-all duration-200 cursor-pointer group"
+    >
+      <div className="relative w-full pt-[56.25%]">
+        <img
+          src={video.thumbnailUrl}
           alt={video.title}
           className="absolute top-0 left-0 w-full h-full object-cover"
         />
+        <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity duration-300" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <FaPlay className="text-white text-4xl" />
+        </div>
       </div>
       <div className="p-4 flex-1">
         <h3 className="font-medium text-gray-900 dark:text-white truncate">{video.title}</h3>
@@ -721,10 +740,10 @@ function VideoGridCard({ video, showVph = false, allVideos }: VideoCardProps) {
                 performanceLevel === 'high' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 
                 performanceLevel === 'exceptional' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300' : 
                 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300'
-              } rounded-xl px-2 py-1 font-medium relative group cursor-help`}>
+              } rounded-xl px-2 py-1 font-medium relative group/badge cursor-help`}>
                 {formatNumber(video.vph)} VPH
                 {performanceLevel === 'exceptional' && <span className="ml-1">🔥</span>}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
                   <div className="relative">
                     <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                     <p>Views Per Hour (VPH) - A metric showing how quickly this video is gaining views.</p>
@@ -734,9 +753,9 @@ function VideoGridCard({ video, showVph = false, allVideos }: VideoCardProps) {
               </span>
               
               {/* Outlier Score Badge */}
-              <span className={`text-xs font-bold rounded-xl px-2 py-1 ${xColor} relative group cursor-help`} title={`This video has ${(outlierData.xFactor).toFixed(1)}x the views of your channel's median video (${outlierData.medianViews.toLocaleString()} views).`}>
+              <span className={`text-xs font-bold rounded-xl px-2 py-1 ${xColor} relative group/badge cursor-help`} title={`This video has ${(outlierData.xFactor).toFixed(1)}x the views of your channel's median video (${outlierData.medianViews.toLocaleString()} views).`}>
                 {outlierData.xFactor.toFixed(1)}x
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
                   <div className="relative">
                     <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                     <p>This video has <b>{outlierData.xFactor.toFixed(1)}x</b> the views of your channel's median video ({outlierData.medianViews.toLocaleString()} views).</p>
@@ -746,9 +765,9 @@ function VideoGridCard({ video, showVph = false, allVideos }: VideoCardProps) {
               
               {/* Performance Score Badge - shown only for top videos */}
               {video.performanceScore && (
-                <span className="text-xs font-bold rounded-xl px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 relative group cursor-help">
+                <span className="text-xs font-bold rounded-xl px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 relative group/badge cursor-help">
                   {Math.round(video.performanceScore)} Score
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-56 shadow-lg z-10">
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-56 shadow-lg z-10">
                     <div className="relative">
                       <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       <p>Performance Score: {Math.round(video.performanceScore)}/100</p>
@@ -790,16 +809,31 @@ function VideoListCard({ video, showVph = false, allVideos }: VideoCardProps) {
   else if (outlierData.xFactor < 0.8) xColor = 'bg-red-200 text-red-800';
   
   return (
-    <div className="bg-white/10 dark:bg-[#00264d]/30 backdrop-blur-sm rounded-xl shadow-sm border border-white/10 dark:border-blue-400/20 p-4">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => openVideoOnYouTube(video.youtubeId)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openVideoOnYouTube(video.youtubeId);
+        }
+      }}
+      className="bg-white/10 dark:bg-[#00264d]/30 backdrop-blur-sm rounded-xl shadow-sm border border-white/10 dark:border-blue-400/20 p-4 hover:bg-white/15 dark:hover:bg-[#00264d]/40 transition-all duration-200 cursor-pointer group"
+    >
       <div className="flex gap-4">
         {/* Thumbnail */}
         <div className="flex-shrink-0">
-          <div className="relative w-32 h-18"> {/* Smaller thumbnail for list view */}
-            <img 
-              src={video.thumbnailUrl} 
+          <div className="relative w-32 aspect-video">
+            <img
+              src={video.thumbnailUrl}
               alt={video.title}
               className="w-full h-full object-cover rounded-lg"
             />
+            <div className="absolute inset-0 rounded-lg bg-black opacity-0 group-hover:opacity-40 transition-opacity duration-300" />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <FaPlay className="text-white text-2xl" />
+            </div>
           </div>
         </div>
         
@@ -823,10 +857,10 @@ function VideoListCard({ video, showVph = false, allVideos }: VideoCardProps) {
                   performanceLevel === 'high' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 
                   performanceLevel === 'exceptional' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300' : 
                   'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300'
-                } rounded-xl px-2 py-1 font-medium relative group cursor-help`}>
+                } rounded-xl px-2 py-1 font-medium relative group/badge cursor-help`}>
                   {formatNumber(video.vph)} VPH
                   {performanceLevel === 'exceptional' && <span className="ml-1">🔥</span>}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
                     <div className="relative">
                       <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       <p>Views Per Hour (VPH) - A metric showing how quickly this video is gaining views.</p>
@@ -836,9 +870,9 @@ function VideoListCard({ video, showVph = false, allVideos }: VideoCardProps) {
                 </span>
                 
                 {/* Outlier Score Badge */}
-                <span className={`text-xs font-bold rounded-xl px-2 py-1 ${xColor} relative group cursor-help`} title={`This video has ${(outlierData.xFactor).toFixed(1)}x the views of your channel's median video (${outlierData.medianViews.toLocaleString()} views).`}>
+                <span className={`text-xs font-bold rounded-xl px-2 py-1 ${xColor} relative group/badge cursor-help`} title={`This video has ${(outlierData.xFactor).toFixed(1)}x the views of your channel's median video (${outlierData.medianViews.toLocaleString()} views).`}>
                   {outlierData.xFactor.toFixed(1)}x
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-48 shadow-lg z-10">
                     <div className="relative">
                       <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                       <p>This video has <b>{outlierData.xFactor.toFixed(1)}x</b> the views of your channel's median video ({outlierData.medianViews.toLocaleString()} views).</p>
@@ -848,9 +882,9 @@ function VideoListCard({ video, showVph = false, allVideos }: VideoCardProps) {
                 
                 {/* Performance Score Badge - shown only for top videos */}
                 {video.performanceScore && (
-                  <span className="text-xs font-bold rounded-xl px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 relative group cursor-help">
+                  <span className="text-xs font-bold rounded-xl px-2 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 relative group/badge cursor-help">
                     {Math.round(video.performanceScore)} Score
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-xl p-2 w-56 shadow-lg z-10">
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/badge:block bg-gray-900 text-white text-xs rounded-xl p-2 w-56 shadow-lg z-10">
                       <div className="relative">
                         <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
                         <p>Performance Score: {Math.round(video.performanceScore)}/100</p>

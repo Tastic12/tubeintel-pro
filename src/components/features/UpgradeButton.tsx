@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FaCrown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/hooks/useSubscription';
+import { hasProAccess } from '@/lib/subscription-limits';
 
 type SubscriptionTier = 'free' | 'pro';
 
@@ -18,7 +19,7 @@ export default function UpgradeButton({
   size = 'medium',
   variant = 'inline'
 }: UpgradeButtonProps) {
-  const { plan, isLoading } = useSubscription();
+  const { plan, isSubscribed, isLoading } = useSubscription();
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   
@@ -32,7 +33,7 @@ export default function UpgradeButton({
   }
   
   // If user already has Pro, don't show upgrade button
-  if (plan === 'pro') {
+  if (hasProAccess(plan, isSubscribed)) {
     return null;
   }
   

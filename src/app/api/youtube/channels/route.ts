@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchFromYouTubeApi } from '../utils';
+import { fetchFromYouTubeApi, guardYouTubeProxyRequest } from '../utils';
 import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const blocked = await guardYouTubeProxyRequest();
+    if (blocked) return blocked;
+
     const ctx = await getYouTubeFetchContext('competitors-init');
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');

@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
+import { hasProAccess } from '@/lib/subscription-limits';
 import { FaLock } from 'react-icons/fa';
 import UpgradeButton from './UpgradeButton';
 
@@ -21,12 +22,11 @@ export default function SubscriptionGate({
   minimumPlan = 'pro',
   fallback
 }: SubscriptionGateProps) {
-  const { plan, isLoading } = useSubscription();
+  const { plan, isSubscribed, isLoading } = useSubscription();
   
-  // Check if user has required subscription level
-  const hasAccess = 
-    (minimumPlan === 'pro' && plan === 'pro') ||
-    isLoading; // Allow access while loading to prevent flicker
+  const hasAccess =
+    isLoading ||
+    (minimumPlan === 'pro' && hasProAccess(plan, isSubscribed));
   
   if (isLoading) {
     return (

@@ -30,6 +30,44 @@ const LIMITS: Record<LimiterId, LimiterSpec> = {
 
 let warnedAboutMissingEnv = false;
 
+type MemoryBucket = { count: number; resetAt: number };
+const memoryBuckets = new Map<string, MemoryBucket>();
+
+function checkMemoryRateLimit(
+  userId: string,
+  limiterId: LimiterId,
+  window: 'minute' | 'day'
+): RateLimitResult {
+  const spec = LIMITS[limiterId];
+  const limit = window === 'minute' ? spec.perMinute : spec.perDay;
+  const windowMs = window === 'minute' ? 60_000 : 86_400_000;
+  const key = `${limiterId}:${window}:${userId}`;
+  const now = Date.now();
+  const bucket = memoryBuckets.get(key);
+
+  if (!bucket || now >= bucket.resetAt) {
+    memoryBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true };
+  }
+
+  if (bucket.count >= limit) {
+    const wait = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+    return {
+      ok: false,
+      status: 429,
+      message:
+        window === 'day'
+          ? `Daily limit reached for this action (${limit}/day). Try again in ${formatWait(wait)}.`
+          : `Slow down — you can run this ${limit} times per minute. Try again in ${wait}s.`,
+      retryAfterSeconds: wait,
+      scope: window,
+    };
+  }
+
+  bucket.count += 1;
+  return { ok: true };
+}
+
 function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -88,7 +126,11 @@ export async function checkRateLimit(
   }
 
   const redis = getRedis();
-  if (!redis) return { ok: true };
+  if (!redis) {
+    const day = checkMemoryRateLimit(userId, limiterId, 'day');
+    if (!day.ok) return day;
+    return checkMemoryRateLimit(userId, limiterId, 'minute');
+  }
 
   const dayLimiter = getLimiter(redis, limiterId, 'day');
   const minuteLimiter = getLimiter(redis, limiterId, 'minute');

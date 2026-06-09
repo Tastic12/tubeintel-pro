@@ -23,6 +23,7 @@ import {
 import { useShortsPreference } from '@/lib/preferences';
 import { filterVideosByShortsPreference } from '@/lib/video-short';
 import { competitorListsApi } from '@/services/api/competitorLists';
+import ProPageGate from '@/components/features/ProPageGate';
 import { Video } from '@/types';
 
 const STYLE_EXAMPLES = [
@@ -72,15 +73,20 @@ function shortFilter(results: ThumbnailSearchResult[], hideShorts: boolean) {
 
 export default function ThumbnailsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-64">
-          <p className="text-gray-400">Loading thumbnail search…</p>
-        </div>
-      }
+    <ProPageGate
+      featureName="Thumbnails"
+      description="Search and analyze thumbnails across your tracked channels. Upgrade to Pro to unlock Thumbnails."
     >
-      <ThumbnailsPageInner />
-    </Suspense>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <p className="text-gray-400">Loading thumbnail search…</p>
+          </div>
+        }
+      >
+        <ThumbnailsPageInner />
+      </Suspense>
+    </ProPageGate>
   );
 }
 

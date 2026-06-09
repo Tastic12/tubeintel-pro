@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/server';
 import { embedImageFromBuffer, embeddingToPgvectorText } from '@/lib/embeddings';
-import { getThumbnailUser } from '@/lib/thumbnail-auth';
+import { requireThumbnailProUser } from '@/lib/thumbnail-auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const maxDuration = 60;
@@ -9,10 +9,9 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
-    const user = await getThumbnailUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireThumbnailProUser(request);
+    if (!auth.ok) return auth.response;
+    const user = auth.user;
 
     const rl = await checkRateLimit(user.id, 'thumbnail-search');
     if (!rl.ok) {

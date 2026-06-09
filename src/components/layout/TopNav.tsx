@@ -75,7 +75,12 @@ export default function TopNav({ username = 'User' }: TopNavProps): JSX.Element 
         return;
       }
 
-      const response = await fetch('/api/subscription/status');
+      const { ensureAuthReady } = await import('@/lib/auth-session');
+      await ensureAuthReady();
+
+      const response = await fetch('/api/subscription/status', {
+        credentials: 'include',
+      });
       const data = await response.json();
       
       if (data.subscribed) {

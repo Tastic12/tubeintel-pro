@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchFromYouTubeApi } from '../utils';
+import { fetchFromYouTubeApi, guardYouTubeProxyRequest } from '../utils';
 import { getYouTubeFetchContext } from '@/lib/request-auth';
 
 function extractUsername(url: string): string {
@@ -23,6 +23,9 @@ function extractUsername(url: string): string {
 
 export async function GET(request: Request) {
   try {
+    const blocked = await guardYouTubeProxyRequest();
+    if (blocked) return blocked;
+
     const ctx = await getYouTubeFetchContext('competitors-init');
     const { searchParams } = new URL(request.url);
     const customUrl = searchParams.get('url');
